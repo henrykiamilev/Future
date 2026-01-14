@@ -36,8 +36,7 @@ struct RootView: View {
                 .transition(.opacity)
 
         case .home:
-            // Placeholder - will be implemented in Calendar section
-            PlaceholderView(title: "Home", message: "Coming in calendar section")
+            CalendarView()
                 .transition(.opacity)
         }
     }

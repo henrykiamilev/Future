@@ -70,11 +70,13 @@ final class APIClient {
     /// Perform GET request
     func get<T: Decodable>(
         _ endpoint: String,
+        queryParams: [String: String]? = nil,
         timeout: TimeInterval? = nil
     ) async throws -> T {
         let request = try await buildRequest(
             endpoint: endpoint,
             method: "GET",
+            queryParams: queryParams,
             timeout: timeout
         )
         return try await perform(request)
@@ -112,14 +114,52 @@ final class APIClient {
         let _: EmptyResponse = try await perform(request)
     }
 
+    /// Perform PUT request with body
+    func put<T: Decodable, B: Encodable>(
+        _ endpoint: String,
+        body: B,
+        timeout: TimeInterval? = nil
+    ) async throws -> T {
+        var request = try await buildRequest(
+            endpoint: endpoint,
+            method: "PUT",
+            timeout: timeout
+        )
+        request.httpBody = try encoder.encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return try await perform(request)
+    }
+
+    /// Perform DELETE request
+    func delete(
+        _ endpoint: String,
+        timeout: TimeInterval? = nil
+    ) async throws {
+        let request = try await buildRequest(
+            endpoint: endpoint,
+            method: "DELETE",
+            timeout: timeout
+        )
+        let _: EmptyResponse = try await perform(request)
+    }
+
     // MARK: - Private Methods
 
     private func buildRequest(
         endpoint: String,
         method: String,
-        timeout: TimeInterval?
+        queryParams: [String: String]? = nil,
+        timeout: TimeInterval? = nil
     ) async throws -> URLRequest {
-        let urlString = Config.apiBaseURL + endpoint
+        var urlString = Config.apiBaseURL + endpoint
+
+        // Add query parameters
+        if let queryParams = queryParams, !queryParams.isEmpty {
+            var components = URLComponents(string: urlString)
+            components?.queryItems = queryParams.map { URLQueryItem(name: $0.key, value: $0.value) }
+            urlString = components?.string ?? urlString
+        }
+
         guard let url = URL(string: urlString) else {
             throw APIError.invalidURL
         }
