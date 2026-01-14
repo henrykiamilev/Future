@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.firebase import init_firebase
-from app.api.routes import health, users, ai
+from app.api.routes import health, users, ai, subscriptions
 
 
 @asynccontextmanager
@@ -54,9 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(ai.router, prefix="/api")
-
-    # Future routers will be added here:
-    # app.include_router(subscriptions.router, prefix="/api/subscriptions")
+    app.include_router(subscriptions.router, prefix="/api")
 
     return app
 

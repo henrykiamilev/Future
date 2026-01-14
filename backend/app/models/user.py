@@ -25,6 +25,8 @@ class UserResponse(BaseModel):
     display_name: str | None
     subscription_tier: SubscriptionTier
     has_completed_onboarding: bool
+    subscription_status: str | None = None
+    subscription_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -40,6 +42,10 @@ class UserDocument(BaseModel):
     display_name: str | None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
     has_completed_onboarding: bool = False
+    stripe_customer_id: str | None = None
+    subscription_id: str | None = None
+    subscription_status: str | None = None
+    subscription_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -51,6 +57,8 @@ class UserDocument(BaseModel):
             display_name=self.display_name,
             subscription_tier=self.subscription_tier,
             has_completed_onboarding=self.has_completed_onboarding,
+            subscription_status=self.subscription_status,
+            subscription_expires_at=self.subscription_expires_at,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )
@@ -63,6 +71,10 @@ class UserDocument(BaseModel):
             "display_name": self.display_name,
             "subscription_tier": self.subscription_tier.value,
             "has_completed_onboarding": self.has_completed_onboarding,
+            "stripe_customer_id": self.stripe_customer_id,
+            "subscription_id": self.subscription_id,
+            "subscription_status": self.subscription_status,
+            "subscription_expires_at": self.subscription_expires_at,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -76,6 +88,10 @@ class UserDocument(BaseModel):
             display_name=data.get("display_name"),
             subscription_tier=SubscriptionTier(data.get("subscription_tier", "free")),
             has_completed_onboarding=data.get("has_completed_onboarding", False),
+            stripe_customer_id=data.get("stripe_customer_id"),
+            subscription_id=data.get("subscription_id"),
+            subscription_status=data.get("subscription_status"),
+            subscription_expires_at=data.get("subscription_expires_at"),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
         )
