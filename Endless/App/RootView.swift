@@ -28,8 +28,7 @@ struct RootView: View {
                 .transition(.opacity)
 
         case .aiIntake:
-            // Placeholder - will be implemented in AI Engine section
-            PlaceholderView(title: "AI Goal Intake", message: "Coming in next section")
+            AIIntakeView()
                 .transition(.opacity)
 
         case .paywall:
@@ -66,14 +65,6 @@ struct PlaceholderView: View {
                 .foregroundColor(Theme.Colors.textSecondary(for: colorScheme))
 
             // Temporary navigation for testing
-            if appState.currentScreen == .aiIntake {
-                Button("Continue to Paywall") {
-                    appState.completeOnboarding()
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.top, Theme.Spacing.lg)
-            }
-
             if appState.currentScreen == .paywall {
                 Button("Continue to Home") {
                     appState.completePaywall()
