@@ -32,8 +32,7 @@ struct RootView: View {
                 .transition(.opacity)
 
         case .paywall:
-            // Placeholder - will be implemented in Paywall section
-            PlaceholderView(title: "Paywall", message: "Coming in paywall section")
+            PaywallView()
                 .transition(.opacity)
 
         case .home:
