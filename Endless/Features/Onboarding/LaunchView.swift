@@ -62,7 +62,7 @@ struct LaunchView: View {
         // Navigate after animation completes
         let totalDuration = animationDuration + holdDuration
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
-            appState.completelaunch()
+            appState.completeLaunch()
         }
     }
 }

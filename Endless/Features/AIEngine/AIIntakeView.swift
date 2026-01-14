@@ -6,12 +6,20 @@ struct AIIntakeView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var goalText: String = ""
-    @State private var isGenerating: Bool = false
-    @State private var showSuggestions: Bool = true
+    @StateObject private var aiService = AIService.shared
 
-    // For token display (will be populated from actual user data)
-    @State private var remainingTokens: Int = 3
+    @State private var goalText: String = ""
+    @State private var showSuggestions: Bool = true
+    @State private var errorMessage: String?
+
+    // Token count from service
+    private var remainingTokens: Int {
+        aiService.remainingTokens
+    }
+
+    private var isGenerating: Bool {
+        aiService.isGenerating
+    }
 
     // Minimum character count before allowing submission
     private let minimumCharacters = 50
@@ -69,6 +77,17 @@ struct AIIntakeView: View {
         .background(Theme.Colors.background(for: colorScheme))
         .onTapGesture {
             hideKeyboard()
+        }
+        .task {
+            // Load initial token status from server
+            await aiService.refreshTokenStatus()
+        }
+        .alert("Error", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 
@@ -223,26 +242,25 @@ struct AIIntakeView: View {
 
     private func generatePlan() {
         hideKeyboard()
+        errorMessage = nil
 
-        withAnimation(Theme.Animation.standard) {
-            isGenerating = true
-        }
+        Task {
+            do {
+                // Call real AI service - backend handles token enforcement
+                let response = try await aiService.generatePlan(goalText: goalText)
 
-        // Create the user goal input
-        let userInput = UserGoalInput(rawText: goalText)
+                // Store the plan ID for later reference if needed
+                print("[AIIntakeView] Plan generated: \(response.planId), tokens remaining: \(response.tokensRemaining)")
 
-        // Simulate AI generation (actual implementation in AIService)
-        // In production, this calls the backend which talks to Gemini
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-            withAnimation(Theme.Animation.standard) {
-                isGenerating = false
+                // Navigate to paywall (per PRD flow: after first plan generation)
+                appState.completeOnboarding()
+            } catch let error as AIServiceError {
+                // Handle token limit errors specially
+                errorMessage = error.localizedDescription
+            } catch {
+                errorMessage = "Failed to generate plan. Please try again."
+                print("[AIIntakeView] Generation error: \(error)")
             }
-
-            // Decrement tokens (actual enforcement on server)
-            remainingTokens -= 1
-
-            // Navigate to paywall (per PRD flow: after first plan generation)
-            appState.completeOnboarding()
         }
     }
 

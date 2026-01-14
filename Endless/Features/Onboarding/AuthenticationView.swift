@@ -220,30 +220,39 @@ struct AuthenticationView: View {
         errorMessage = nil
         isLoading = true
 
-        // Simulate auth delay (actual Firebase integration in Services)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            isLoading = false
-            // For now, navigate forward. Actual auth will be handled by AuthService.
-            appState.completeAuthentication()
+        Task {
+            do {
+                if authMode == .signIn {
+                    try await AuthService.shared.signIn(email: email, password: password)
+                } else {
+                    try await AuthService.shared.createAccount(email: email, password: password)
+                }
+
+                // Sync user profile with backend (creates if new, updates if existing)
+                _ = try await UserService.shared.syncUser()
+
+                // Refresh token status for AI features
+                await AIService.shared.refreshTokenStatus()
+
+                isLoading = false
+                appState.completeAuthentication()
+            } catch {
+                isLoading = false
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
     private func performGoogleSignIn() {
-        isLoading = true
-        // Actual implementation in AuthService
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            isLoading = false
-            appState.completeAuthentication()
-        }
+        // Google Sign In requires additional SDK setup
+        // For now, show a message that it's not yet configured
+        errorMessage = "Google Sign In requires additional configuration"
     }
 
     private func performAppleSignIn() {
-        isLoading = true
-        // Actual implementation in AuthService
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            isLoading = false
-            appState.completeAuthentication()
-        }
+        // Apple Sign In will be triggered via SignInWithAppleButton
+        // For now, show a message
+        errorMessage = "Apple Sign In requires additional configuration"
     }
 
     private func hideKeyboard() {
