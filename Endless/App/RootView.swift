@@ -36,7 +36,7 @@ struct RootView: View {
                 .transition(.opacity)
 
         case .home:
-            CalendarView()
+            HomeTabView()
                 .transition(.opacity)
         }
     }
