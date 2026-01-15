@@ -70,7 +70,7 @@ struct CalendarView: View {
             TaskDetailSheet(task: task)
         }
         .sheet(isPresented: $showSettings) {
-            SettingsPlaceholderView()
+            SettingsView()
         }
     }
 
@@ -259,37 +259,6 @@ struct CalendarView: View {
                 _ = try await calendarService.toggleTaskCompletion(task.id)
             } catch {
                 print("[CalendarView] Failed to toggle task: \(error)")
-            }
-        }
-    }
-}
-
-// MARK: - Settings Placeholder
-
-struct SettingsPlaceholderView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        NavigationView {
-            VStack {
-                Text("Settings")
-                    .font(Theme.Typography.title2)
-                    .foregroundColor(Theme.Colors.textPrimary(for: colorScheme))
-
-                Text("Coming in Section 8")
-                    .font(Theme.Typography.body)
-                    .foregroundColor(Theme.Colors.textSecondary(for: colorScheme))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.Colors.background(for: colorScheme))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
             }
         }
     }

@@ -68,6 +68,50 @@ final class UserService: ObservableObject {
         currentProfile = nil
     }
 
+    /// Update user profile (display name, preferences).
+    func updateProfile(
+        displayName: String? = nil,
+        notificationsEnabled: Bool? = nil,
+        darkModeEnabled: Bool? = nil
+    ) async throws -> UserProfileResponse {
+        isLoading = true
+        error = nil
+
+        do {
+            let request = UpdateProfileRequest(
+                displayName: displayName,
+                notificationsEnabled: notificationsEnabled,
+                darkModeEnabled: darkModeEnabled
+            )
+            let response: UserProfileResponse = try await apiClient.put("/users/me", body: request)
+            currentProfile = response
+            isLoading = false
+            return response
+        } catch {
+            self.error = error
+            isLoading = false
+            throw error
+        }
+    }
+
+    /// Reset journal mode preference (requires confirmation).
+    func resetJournalMode() async throws -> UserProfileResponse {
+        isLoading = true
+        error = nil
+
+        do {
+            let request = ResetJournalModeRequest(resetJournalMode: true)
+            let response: UserProfileResponse = try await apiClient.post("/users/me/reset-journal-mode", body: request)
+            currentProfile = response
+            isLoading = false
+            return response
+        } catch {
+            self.error = error
+            isLoading = false
+            throw error
+        }
+    }
+
     // MARK: - Computed Properties
 
     var subscriptionTier: SubscriptionTier {
@@ -90,14 +134,28 @@ struct UserSyncRequest: Encodable {
     let displayName: String?
 }
 
+struct UpdateProfileRequest: Encodable {
+    let displayName: String?
+    let notificationsEnabled: Bool?
+    let darkModeEnabled: Bool?
+}
+
+struct ResetJournalModeRequest: Encodable {
+    let resetJournalMode: Bool
+}
+
 struct UserProfileResponse: Decodable {
     let uid: String
     let email: String?
     let displayName: String?
+    let profileImageUrl: String?
     let subscriptionTier: String
     let hasCompletedOnboarding: Bool
     let subscriptionStatus: String?
     let subscriptionExpiresAt: Date?
+    let journalMode: String?
+    let notificationsEnabled: Bool?
+    let darkModeEnabled: Bool?
     let createdAt: Date
     let updatedAt: Date
 }
