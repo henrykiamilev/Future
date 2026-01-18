@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
 from ..services.firebase_service import verify_firebase_token
-from ..services.user_service import sync_user, get_user_plans_status
+from ..services.user_service import sync_user, get_user_plans_status, get_current_year
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -58,7 +58,7 @@ async def sync_user_endpoint(
             email=user_data.get("email"),
             planTier=user_data.get("planTier", "free"),
             plansRemaining=user_data.get("plansRemaining", 3),  # Default 3, NOT 0
-            plansYear=user_data.get("plansYear", 2024),
+            plansYear=user_data.get("plansYear", get_current_year()),
         )
 
         print(f"[API] /users/sync returning plansRemaining={response.plansRemaining}")

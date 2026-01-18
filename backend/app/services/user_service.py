@@ -1,6 +1,7 @@
 """User service with Firestore as single source of truth for plans."""
 from datetime import datetime
 from typing import Optional
+from firebase_admin import firestore
 from .firebase_service import get_firestore_db
 
 # Plan tier limits
@@ -125,33 +126,42 @@ def decrement_plan(uid: str) -> dict:
     """
     Decrement user's plansRemaining after successful plan generation.
 
+    Uses Firestore transaction for atomicity - prevents race conditions
+    where two concurrent requests could both decrement from the same value.
+
     Returns updated plan status.
     Raises ValueError if no plans remaining.
     """
     db = get_firestore_db()
     user_ref = db.collection("users").document(uid)
-    user_doc = user_ref.get()
 
-    if not user_doc.exists:
-        raise ValueError(f"User {uid} not found")
+    @firestore.transactional
+    def decrement_in_transaction(transaction):
+        user_doc = user_ref.get(transaction=transaction)
 
-    user_data = user_doc.to_dict()
-    plans_remaining = user_data.get("plansRemaining", 0)
+        if not user_doc.exists:
+            raise ValueError(f"User {uid} not found")
 
-    if plans_remaining <= 0:
-        raise ValueError("No plans remaining")
+        user_data = user_doc.to_dict()
+        plans_remaining = user_data.get("plansRemaining", 0)
 
-    new_remaining = plans_remaining - 1
-    user_ref.update({
-        "plansRemaining": new_remaining,
-        "lastPlanGeneratedAt": datetime.now(),
-        "updatedAt": datetime.now(),
-    })
+        if plans_remaining <= 0:
+            raise ValueError("No plans remaining")
 
-    print(f"[UserService] Decremented plans for {uid}: {plans_remaining} -> {new_remaining}")
+        new_remaining = plans_remaining - 1
+        transaction.update(user_ref, {
+            "plansRemaining": new_remaining,
+            "lastPlanGeneratedAt": datetime.now(),
+            "updatedAt": datetime.now(),
+        })
 
-    return {
-        "planTier": user_data.get("planTier", "free"),
-        "plansRemaining": new_remaining,
-        "plansYear": user_data.get("plansYear", get_current_year()),
-    }
+        print(f"[UserService] Decremented plans for {uid}: {plans_remaining} -> {new_remaining}")
+
+        return {
+            "planTier": user_data.get("planTier", "free"),
+            "plansRemaining": new_remaining,
+            "plansYear": user_data.get("plansYear", get_current_year()),
+        }
+
+    transaction = db.transaction()
+    return decrement_in_transaction(transaction)
