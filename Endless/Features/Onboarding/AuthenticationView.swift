@@ -51,9 +51,25 @@ struct AuthenticationView: View {
                 // Backend sync is non-blocking - failures do NOT block UI
                 Task {
                     do {
-                        _ = try await UserService.shared.syncUser()
+                        print("[Auth] Starting backend sync...")
+                        let syncResponse = try await UserService.shared.syncUser()
+
+                        // Update AppState with plans data from backend
+                        // CRITICAL: Backend returns plansRemaining=3 for new users, NOT 0
+                        await MainActor.run {
+                            print("[Auth] Updating AppState: plansRemaining=\(syncResponse.plansRemaining)")
+                            appState.updatePlansStatus(
+                                remaining: syncResponse.plansRemaining,
+                                tier: syncResponse.planTier,
+                                year: syncResponse.plansYear
+                            )
+                        }
+
                         await AIService.shared.refreshTokenStatus()
+                        print("[Auth] Backend sync completed successfully")
                     } catch {
+                        // Backend failure is non-fatal - user can still use app
+                        // AppState.displayPlansRemaining returns tier limit when nil
                         print("[Auth] Backend sync failed (non-fatal): \(error.localizedDescription)")
                     }
                 }
