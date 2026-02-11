@@ -131,12 +131,7 @@ extension APIEndpoint {
 }
 
 // MARK: - Image Upload
-
-extension APIEndpoint {
-    static var requestUploadURL: APIEndpoint {
-        APIEndpoint(path: "/uploads/presign", method: .POST)
-    }
-}
+// Presign endpoint is defined in ImageUploadService.swift with content-type and size parameters.
 
 // MARK: - Request Bodies
 
