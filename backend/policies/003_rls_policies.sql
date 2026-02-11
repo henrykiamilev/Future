@@ -1,15 +1,17 @@
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
 -- ============================================================================
--- Assumes: app.current_user_id is set via SET LOCAL at the start of each
--- request (e.g., from JWT claims in Edge Function / Lambda / middleware).
+-- Supabase automatically sets auth.uid() from the JWT in every request.
+-- All policies use auth.uid() directly — no manual session variable needed.
 --
--- SET LOCAL "app.current_user_id" = 'uuid-here';
+-- For SECURITY DEFINER functions that bypass RLS, we use auth.uid() inside
+-- the function body to identify the caller.
 -- ============================================================================
 
--- Helper: get current authenticated user ID
+-- Helper: alias for Supabase's built-in auth.uid()
+-- This wrapper exists so non-Supabase environments can override it.
 CREATE OR REPLACE FUNCTION auth_uid() RETURNS UUID AS $$
-    SELECT NULLIF(current_setting('app.current_user_id', TRUE), '')::UUID;
+    SELECT auth.uid();
 $$ LANGUAGE sql STABLE;
 
 -- ============================================================================
@@ -213,13 +215,19 @@ CREATE POLICY reports_insert ON reports
     FOR INSERT WITH CHECK (reporter_id = auth_uid());
 
 -- ============================================================================
--- POST_VIEWS
+-- POST_VIEW_HOURLY (direct increment via record_post_view function)
 -- ============================================================================
-ALTER TABLE post_views ENABLE ROW LEVEL SECURITY;
+-- No direct client access — views are recorded via SECURITY DEFINER function.
+-- RLS is enabled but no policies needed (function bypasses RLS).
+ALTER TABLE post_view_hourly ENABLE ROW LEVEL SECURITY;
 
--- Insert only (tracking)
-CREATE POLICY post_views_insert ON post_views
-    FOR INSERT WITH CHECK (viewer_id = auth_uid() OR viewer_id IS NULL);
+-- ============================================================================
+-- FEED_SCORES (read-only for authenticated users)
+-- ============================================================================
+ALTER TABLE feed_scores ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY feed_scores_select ON feed_scores
+    FOR SELECT USING (auth_uid() IS NOT NULL);
 
 -- ============================================================================
 -- FEED_EXPOSURES

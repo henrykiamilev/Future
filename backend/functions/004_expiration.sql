@@ -29,25 +29,27 @@ WHERE p.is_hidden = FALSE
 CREATE OR REPLACE FUNCTION cleanup_expired_data()
 RETURNS void AS $$
 BEGIN
-    -- Remove view tracking data older than 7 days (no longer needed for velocity)
-    DELETE FROM post_views
-    WHERE created_at < now() - INTERVAL '7 days';
-
-    -- Remove hourly aggregates older than 7 days
+    -- Remove hourly aggregates older than 4 days (posts expire at 3 days,
+    -- keep 1 extra day for safety)
     DELETE FROM post_view_hourly
-    WHERE hour_bucket < now() - INTERVAL '7 days';
+    WHERE hour_bucket < now() - INTERVAL '4 days';
 
-    -- Remove feed exposure records older than 2 days
+    -- Remove feed exposure records with windows older than 48h
     DELETE FROM feed_exposures
-    WHERE feed_date < CURRENT_DATE - 2;
+    WHERE window_start < now() - INTERVAL '48 hours';
 
-    -- Log cleanup (optional)
+    -- Remove pre-scored entries for expired posts
+    DELETE FROM feed_scores
+    WHERE post_id IN (
+        SELECT id FROM posts WHERE expires_at <= now() AND is_signature = FALSE
+    );
+
     RAISE NOTICE 'Expired data cleanup completed at %', now();
 END;
 $$ LANGUAGE plpgsql;
 
--- Schedule via pg_cron (if available) or external cron:
--- SELECT cron.schedule('cleanup-expired', '0 4 * * *', 'SELECT cleanup_expired_data()');
+-- Schedule via pg_cron (Supabase has pg_cron built-in):
+-- SELECT cron.schedule('cleanup-expired', '0 */4 * * *', 'SELECT cleanup_expired_data()');
 
 -- --------------------------------------------------------------------------
 -- 3. ARCHIVE QUERY (owner only — enforced by RLS)

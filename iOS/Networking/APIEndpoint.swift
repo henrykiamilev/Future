@@ -23,98 +23,174 @@ struct APIEndpoint: Sendable {
     }
 }
 
-// MARK: - Feed Endpoints
+// ============================================================================
+// SUPABASE RPC ENDPOINTS
+// ============================================================================
+// All database functions are called via POST /rest/v1/rpc/{function_name}
+// with JSON body for parameters. Supabase PostgREST handles auth via JWT.
+// ============================================================================
+
+// MARK: - Feed Endpoints (Supabase RPC)
 
 extension APIEndpoint {
     static func mainFeed(cursorScore: Double? = nil, cursorID: UUID? = nil, limit: Int = 20) -> APIEndpoint {
-        var items: [URLQueryItem] = [.init(name: "limit", value: "\(limit)")]
-        if let score = cursorScore { items.append(.init(name: "cursor_score", value: "\(score)")) }
-        if let id = cursorID { items.append(.init(name: "cursor_id", value: id.uuidString)) }
-        return APIEndpoint(path: "/feed/main", queryItems: items)
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_main_feed",
+            method: .POST,
+            body: RPCMainFeed(
+                p_cursor_score: cursorScore,
+                p_cursor_id: cursorID?.uuidString,
+                p_limit: limit
+            )
+        )
     }
 
     static func friendsFeed(cursor: Date? = nil, limit: Int = 20) -> APIEndpoint {
-        var items: [URLQueryItem] = [.init(name: "limit", value: "\(limit)")]
+        var cursorString: String?
         if let cursor {
-            items.append(.init(name: "cursor", value: ISO8601DateFormatter().string(from: cursor)))
+            cursorString = ISO8601DateFormatter().string(from: cursor)
         }
-        return APIEndpoint(path: "/feed/friends", queryItems: items)
+        return APIEndpoint(
+            path: "/rest/v1/rpc/get_friends_feed",
+            method: .POST,
+            body: RPCFriendsFeed(p_cursor: cursorString, p_limit: limit)
+        )
     }
 
     static func recordExposures(authorIDs: [UUID]) -> APIEndpoint {
-        APIEndpoint(path: "/feed/exposures", method: .POST, body: ExposureRequest(authorIds: authorIDs))
+        APIEndpoint(
+            path: "/rest/v1/rpc/record_feed_exposures",
+            method: .POST,
+            body: RPCExposures(p_author_ids: authorIDs.map(\.uuidString))
+        )
+    }
+
+    static func recordPostView(postID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/record_post_view",
+            method: .POST,
+            body: RPCPostView(p_post_id: postID.uuidString)
+        )
     }
 }
 
-// MARK: - Post Endpoints
+// MARK: - Post Endpoints (Supabase RPC)
 
 extension APIEndpoint {
     static func createPost(_ request: CreatePostRequest) -> APIEndpoint {
-        APIEndpoint(path: "/posts", method: .POST, body: request)
+        APIEndpoint(
+            path: "/rest/v1/rpc/create_post",
+            method: .POST,
+            body: RPCCreatePost(
+                p_image_url: request.imageURL,
+                p_image_width: request.imageWidth,
+                p_image_height: request.imageHeight,
+                p_image_size_bytes: request.imageSizeBytes,
+                p_tags: request.tags
+            )
+        )
     }
 
     static func likePost(id: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/posts/\(id.uuidString)/like", method: .POST)
+        APIEndpoint(
+            path: "/rest/v1/rpc/like_post",
+            method: .POST,
+            body: RPCPostID(p_post_id: id.uuidString)
+        )
     }
 
     static func unlikePost(id: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/posts/\(id.uuidString)/like", method: .DELETE)
+        APIEndpoint(
+            path: "/rest/v1/rpc/unlike_post",
+            method: .POST,
+            body: RPCPostID(p_post_id: id.uuidString)
+        )
     }
 
     static func checkLiked(postIDs: [UUID]) -> APIEndpoint {
-        let ids = postIDs.map(\.uuidString).joined(separator: ",")
-        return APIEndpoint(
-            path: "/posts/liked",
-            queryItems: [.init(name: "ids", value: ids)]
+        APIEndpoint(
+            path: "/rest/v1/rpc/check_liked_posts",
+            method: .POST,
+            body: RPCCheckLiked(p_post_ids: postIDs.map(\.uuidString))
         )
     }
 
     static func reportPost(id: UUID, reason: String) -> APIEndpoint {
-        APIEndpoint(path: "/posts/\(id.uuidString)/report", method: .POST, body: ReportRequest(reason: reason))
+        // Reports go directly to the reports table via PostgREST
+        APIEndpoint(
+            path: "/rest/v1/reports",
+            method: .POST,
+            body: RPCReport(target_type: "post", target_id: id.uuidString, reason: reason)
+        )
     }
 }
 
-// MARK: - Profile Endpoints
+// MARK: - Profile Endpoints (Supabase RPC)
 
 extension APIEndpoint {
     static func profile(userID: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/users/\(userID.uuidString)/profile")
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_user_profile",
+            method: .POST,
+            body: RPCUserID(p_user_id: userID.uuidString)
+        )
     }
 
     static func archive(cursor: Date? = nil, limit: Int = 20) -> APIEndpoint {
-        var items: [URLQueryItem] = [.init(name: "limit", value: "\(limit)")]
+        var cursorString: String?
         if let cursor {
-            items.append(.init(name: "cursor", value: ISO8601DateFormatter().string(from: cursor)))
+            cursorString = ISO8601DateFormatter().string(from: cursor)
         }
-        return APIEndpoint(path: "/me/archive", queryItems: items)
+        return APIEndpoint(
+            path: "/rest/v1/rpc/get_user_archive",
+            method: .POST,
+            body: RPCArchive(p_cursor: cursorString, p_limit: limit)
+        )
     }
 
     static func updateProfile(_ update: ProfileUpdate) -> APIEndpoint {
-        APIEndpoint(path: "/me/profile", method: .PATCH, body: update)
+        // Direct table update via PostgREST — RLS ensures own-row only
+        APIEndpoint(path: "/rest/v1/users", method: .PATCH, body: update)
     }
 }
 
-// MARK: - Signature Endpoints
+// MARK: - Signature Endpoints (Supabase RPC)
 
 extension APIEndpoint {
     static func addSignature(postID: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/me/signature/\(postID.uuidString)", method: .PUT)
+        APIEndpoint(
+            path: "/rest/v1/rpc/add_to_signature",
+            method: .POST,
+            body: RPCPostID(p_post_id: postID.uuidString)
+        )
     }
 
     static func removeSignature(postID: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/me/signature/\(postID.uuidString)", method: .DELETE)
+        APIEndpoint(
+            path: "/rest/v1/rpc/remove_from_signature",
+            method: .POST,
+            body: RPCPostID(p_post_id: postID.uuidString)
+        )
     }
 }
 
-// MARK: - Follow Endpoints
+// MARK: - Follow Endpoints (Supabase PostgREST)
 
 extension APIEndpoint {
     static func follow(userID: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/users/\(userID.uuidString)/follow", method: .POST)
+        APIEndpoint(
+            path: "/rest/v1/follows",
+            method: .POST,
+            body: RPCFollow(following_id: userID.uuidString)
+        )
     }
 
     static func unfollow(userID: UUID) -> APIEndpoint {
-        APIEndpoint(path: "/users/\(userID.uuidString)/follow", method: .DELETE)
+        APIEndpoint(
+            path: "/rest/v1/follows",
+            method: .DELETE,
+            queryItems: [.init(name: "following_id", value: "eq.\(userID.uuidString)")]
+        )
     }
 }
 
@@ -122,25 +198,80 @@ extension APIEndpoint {
 
 extension APIEndpoint {
     static func updateVisibility(_ visibility: User.AccountVisibility) -> APIEndpoint {
-        APIEndpoint(path: "/me/visibility", method: .PATCH, body: VisibilityUpdate(visibility: visibility))
+        APIEndpoint(path: "/rest/v1/users", method: .PATCH, body: VisibilityUpdate(visibility: visibility))
     }
 
     static var deleteAccount: APIEndpoint {
-        APIEndpoint(path: "/me", method: .DELETE)
+        APIEndpoint(path: "/rest/v1/users", method: .DELETE)
     }
 }
 
-// MARK: - Image Upload
-// Presign endpoint is defined in ImageUploadService.swift with content-type and size parameters.
+// MARK: - Signature Queries
 
-// MARK: - Request Bodies
-
-private struct ExposureRequest: Encodable, Sendable {
-    let authorIds: [UUID]
+extension APIEndpoint {
+    static func signaturePosts(userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_signature_posts",
+            method: .POST,
+            body: RPCUserID(p_user_id: userID.uuidString)
+        )
+    }
 }
 
-private struct ReportRequest: Encodable, Sendable {
+// MARK: - Supabase RPC Request Bodies
+
+private struct RPCMainFeed: Encodable, Sendable {
+    let p_cursor_score: Double?
+    let p_cursor_id: String?
+    let p_limit: Int
+}
+
+private struct RPCFriendsFeed: Encodable, Sendable {
+    let p_cursor: String?
+    let p_limit: Int
+}
+
+private struct RPCExposures: Encodable, Sendable {
+    let p_author_ids: [String]
+}
+
+private struct RPCPostView: Encodable, Sendable {
+    let p_post_id: String
+}
+
+private struct RPCCreatePost: Encodable, Sendable {
+    let p_image_url: String
+    let p_image_width: Int
+    let p_image_height: Int
+    let p_image_size_bytes: Int
+    let p_tags: [TagInput]
+}
+
+private struct RPCPostID: Encodable, Sendable {
+    let p_post_id: String
+}
+
+private struct RPCCheckLiked: Encodable, Sendable {
+    let p_post_ids: [String]
+}
+
+private struct RPCReport: Encodable, Sendable {
+    let target_type: String
+    let target_id: String
     let reason: String
+}
+
+private struct RPCUserID: Encodable, Sendable {
+    let p_user_id: String
+}
+
+private struct RPCArchive: Encodable, Sendable {
+    let p_cursor: String?
+    let p_limit: Int
+}
+
+private struct RPCFollow: Encodable, Sendable {
+    let following_id: String
 }
 
 struct ProfileUpdate: Encodable, Sendable {
@@ -148,6 +279,13 @@ struct ProfileUpdate: Encodable, Sendable {
     var bio: String?
     var instagramHandle: String?
     var snapchatHandle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case bio
+        case instagramHandle = "instagram_handle"
+        case snapchatHandle = "snapchat_handle"
+    }
 }
 
 private struct VisibilityUpdate: Encodable, Sendable {

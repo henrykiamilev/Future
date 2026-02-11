@@ -70,6 +70,16 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     private var currentInput: AVCaptureDeviceInput?
     private var activeContinuation: CheckedContinuation<UIImage, Error>?
 
+    deinit {
+        // Fail any outstanding continuation to prevent a leaked coroutine.
+        // This avoids a crash if the coordinator is deallocated while a capture is in-flight.
+        if let continuation = activeContinuation {
+            activeContinuation = nil
+            continuation.resume(throwing: CameraError.sessionNotRunning)
+        }
+        captureSession.stopRunning()
+    }
+
     // MARK: - Public: Session Lifecycle
 
     /// Configures and starts the capture session. Call once when the camera view appears.

@@ -66,9 +66,11 @@ CREATE TABLE posts (
     )
 );
 
--- Feed queries: active posts by creation time
-CREATE INDEX idx_posts_active_feed ON posts (created_at DESC)
-    WHERE is_hidden = FALSE AND expires_at > now();
+-- Feed queries: active non-hidden posts
+-- NOTE: now() in partial index predicates is NOT sargable — Postgres evaluates it
+-- at CREATE INDEX time, making the index useless. Use a plain partial on is_hidden instead.
+CREATE INDEX idx_posts_active_feed ON posts (expires_at DESC, created_at DESC)
+    WHERE is_hidden = FALSE;
 
 -- User's posts (profile, archive)
 CREATE INDEX idx_posts_user_id_created ON posts (user_id, created_at DESC);
@@ -80,10 +82,6 @@ CREATE INDEX idx_posts_user_signature ON posts (user_id)
 -- Expiration processing
 CREATE INDEX idx_posts_expires_at ON posts (expires_at)
     WHERE is_hidden = FALSE;
-
--- Ranking support
-CREATE INDEX idx_posts_ranking ON posts (created_at DESC, like_count DESC, view_count DESC)
-    WHERE is_hidden = FALSE AND expires_at > now();
 
 -- ============================================================================
 -- TAGS
@@ -143,22 +141,11 @@ CREATE INDEX idx_follows_follower ON follows (follower_id, is_approved);
 -- When rejected, delete the row.
 
 -- ============================================================================
--- POST VIEWS (for view velocity tracking)
+-- POST VIEW HOURLY AGGREGATES (direct increment — no raw post_views table)
 -- ============================================================================
-
-CREATE TABLE post_views (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    post_id     UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    viewer_id   UUID REFERENCES users(id) ON DELETE SET NULL,  -- nullable for anonymous
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_post_views_post_created ON post_views (post_id, created_at DESC);
-
--- Partitioning hint: partition by created_at monthly at scale
-
--- ============================================================================
--- POST VIEW HOURLY AGGREGATES (for view velocity without scanning raw views)
+-- The raw post_views table was eliminated to avoid unbounded row growth
+-- (100M+ rows/day at 1M DAU). Views are recorded directly into hourly buckets
+-- via the record_post_view() function.
 -- ============================================================================
 
 CREATE TABLE post_view_hourly (
@@ -208,10 +195,28 @@ CREATE INDEX idx_blocks_blocked ON blocks (blocked_id);
 -- ============================================================================
 
 CREATE TABLE feed_exposures (
-    viewer_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    author_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    feed_date   DATE NOT NULL DEFAULT CURRENT_DATE,
-    exposure_count INT NOT NULL DEFAULT 1,
+    viewer_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    author_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exposure_count  INT NOT NULL DEFAULT 1,
+    window_start    TIMESTAMPTZ NOT NULL DEFAULT now(),  -- rolling 24h window start
 
-    PRIMARY KEY (viewer_id, author_id, feed_date)
+    PRIMARY KEY (viewer_id, author_id)
 );
+
+-- ============================================================================
+-- PRE-SCORED FEED TABLE (refreshed by pg_cron every 5 minutes)
+-- ============================================================================
+-- Eliminates the need to scan all active posts per feed request.
+-- The scoring cron job computes base_score (without personalization) using
+-- rolling p95 normalization. The feed query adds personalization at read time.
+-- ============================================================================
+
+CREATE TABLE feed_scores (
+    post_id     UUID PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+    author_id   UUID NOT NULL,
+    base_score  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    scored_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_feed_scores_base ON feed_scores (base_score DESC, post_id DESC);
+CREATE INDEX idx_feed_scores_author ON feed_scores (author_id);

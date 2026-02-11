@@ -28,6 +28,10 @@ final class FeedViewModel: ObservableObject {
     private var hasMore = true
     private var loadTask: Task<Void, Never>?
 
+    // Memory cap: keep at most this many posts in memory.
+    // Older posts are dropped from the front when new pages arrive.
+    private let maxPostsInMemory = 100
+
     // MARK: - Dependencies
 
     private let feedService: FeedServiceProtocol
@@ -82,6 +86,12 @@ final class FeedViewModel: ObservableObject {
             posts.append(contentsOf: page.posts)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
+
+            // Memory cap: drop oldest posts if we exceed the limit
+            if posts.count > maxPostsInMemory {
+                let overflow = posts.count - maxPostsInMemory
+                posts.removeFirst(overflow)
+            }
         } catch {
             // Silently fail on pagination — user can scroll again
         }
@@ -90,7 +100,10 @@ final class FeedViewModel: ObservableObject {
     }
 
     func toggleLike(post: FeedPost) async {
-        guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+        // Capture the post ID for stable lookup — avoids index-based race condition
+        let postID = post.id
+
+        guard let index = posts.firstIndex(where: { $0.id == postID }) else { return }
 
         // Optimistic update
         let wasLiked = posts[index].isLiked
@@ -98,10 +111,12 @@ final class FeedViewModel: ObservableObject {
 
         do {
             let response = wasLiked
-                ? try await postService.unlikePost(id: post.id)
-                : try await postService.likePost(id: post.id)
+                ? try await postService.unlikePost(id: postID)
+                : try await postService.likePost(id: postID)
 
-            if let idx = posts.firstIndex(where: { $0.id == post.id }) {
+            // Re-lookup by ID after the async call — the index may have shifted
+            if let idx = posts.firstIndex(where: { $0.id == postID }) {
+                posts[idx].isLiked = !wasLiked
                 posts[idx] = FeedPost(
                     id: posts[idx].id,
                     userID: posts[idx].userID,
@@ -119,8 +134,8 @@ final class FeedViewModel: ObservableObject {
                 )
             }
         } catch {
-            // Revert optimistic update
-            if let idx = posts.firstIndex(where: { $0.id == post.id }) {
+            // Revert optimistic update — re-lookup by ID, not stale index
+            if let idx = posts.firstIndex(where: { $0.id == postID }) {
                 posts[idx].isLiked = wasLiked
             }
         }

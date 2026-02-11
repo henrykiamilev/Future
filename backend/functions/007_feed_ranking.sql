@@ -1,32 +1,132 @@
 -- ============================================================================
--- FEED RANKING — SERVER-SIDE SCORING
+-- FEED RANKING — PRE-SCORED TABLE + LIGHTWEIGHT READ
 -- ============================================================================
 --
--- SCORING FORMULA (Main Feed):
+-- ARCHITECTURE:
+--   1. pg_cron runs refresh_feed_scores() every 5 minutes
+--   2. That function pre-computes base_score for all active posts using
+--      rolling p95 normalization (stable across traffic spikes)
+--   3. get_main_feed() reads pre-scored table, adds personalization at
+--      read time, applies exposure cap, and returns render-ready rows
 --
---   score = (like_weight * normalized_likes)
---         + (velocity_weight * normalized_velocity)
---         + (freshness_weight * freshness_factor)
---         + (personalization_weight * is_following)
+-- SCORING FORMULA:
+--   base_score = 0.30 * normalized_likes
+--              + 0.25 * normalized_velocity
+--              + 0.30 * freshness
 --
--- Where:
---   normalized_likes    = ln(1 + like_count) / ln(1 + max_likes_in_batch)
---   normalized_velocity = recent_views_1h / GREATEST(1, max_velocity_in_batch)
---   freshness_factor    = EXP(-decay_rate * hours_since_creation)
---   is_following         = 1.0 if viewer follows author, else 0.0
+--   final_score = base_score + 0.15 * is_following
 --
--- Weights (tunable):
---   like_weight          = 0.20  (weighted but not dominant)
---   velocity_weight      = 0.25
---   freshness_weight     = 0.45  (strong weight as per PRD)
---   personalization_weight = 0.10 (light personalization)
---   decay_rate           = 0.05  (half-life ~14 hours)
+-- NORMALIZATION (rolling p95 — stable):
+--   normalized_likes    = ln(1 + like_count) / ln(1 + p95_likes)
+--   normalized_velocity = velocity_1h / GREATEST(1, p95_velocity)
+--   freshness           = EXP(-0.05 * hours_since_creation)
 --
--- Exposure cap: max 2 posts per author per viewer per day
+-- Exposure cap: max 2 posts per author per viewer per rolling 24h window
 -- ============================================================================
 
 -- --------------------------------------------------------------------------
--- MAIN FEED (Discovery — ranked)
+-- RECORD A POST VIEW (replaces the old post_views table INSERT)
+-- --------------------------------------------------------------------------
+-- Call this from the client when a post enters the viewport.
+-- Directly increments the hourly bucket and the denormalized counter.
+-- No raw row storage — O(1) per view instead of O(N).
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION record_post_view(p_post_id UUID)
+RETURNS void AS $$
+BEGIN
+    -- Increment denormalized counter on posts
+    UPDATE posts SET view_count = view_count + 1
+    WHERE id = p_post_id;
+
+    -- Upsert into hourly bucket (for velocity calculation)
+    INSERT INTO post_view_hourly (post_id, hour_bucket, view_count)
+    VALUES (p_post_id, date_trunc('hour', now()), 1)
+    ON CONFLICT (post_id, hour_bucket)
+    DO UPDATE SET view_count = post_view_hourly.view_count + 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- --------------------------------------------------------------------------
+-- REFRESH FEED SCORES (pg_cron job — runs every 5 minutes)
+-- --------------------------------------------------------------------------
+-- Pre-computes base_score for all active posts. Uses rolling p95 stats
+-- from the last 24 hours for stable normalization.
+-- Cost: one sequential scan of active posts (~1M DAU → ~3M active posts)
+-- but only runs every 5 minutes, not per-request.
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION refresh_feed_scores()
+RETURNS void AS $$
+DECLARE
+    v_p95_likes    DOUBLE PRECISION;
+    v_p95_velocity DOUBLE PRECISION;
+    v_like_w       DOUBLE PRECISION := 0.30;
+    v_velocity_w   DOUBLE PRECISION := 0.25;
+    v_freshness_w  DOUBLE PRECISION := 0.30;
+    v_decay_rate   DOUBLE PRECISION := 0.05;  -- half-life ~14 hours
+BEGIN
+    -- ──────────────────────────────────────────────────
+    -- Step 1: Compute rolling p95 stats from active posts
+    -- ──────────────────────────────────────────────────
+    SELECT
+        GREATEST(1, percentile_cont(0.95) WITHIN GROUP (ORDER BY p.like_count)),
+        GREATEST(1, percentile_cont(0.95) WITHIN GROUP (ORDER BY COALESCE(v.velocity, 0)))
+    INTO v_p95_likes, v_p95_velocity
+    FROM posts p
+    LEFT JOIN LATERAL (
+        SELECT SUM(pvh.view_count) AS velocity
+        FROM post_view_hourly pvh
+        WHERE pvh.post_id = p.id
+          AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+    ) v ON TRUE
+    WHERE p.is_hidden = FALSE
+      AND p.expires_at > now();
+
+    -- ──────────────────────────────────────────────────
+    -- Step 2: Upsert scores for all active posts
+    -- ──────────────────────────────────────────────────
+    INSERT INTO feed_scores (post_id, author_id, base_score, scored_at)
+    SELECT
+        p.id,
+        p.user_id,
+        (
+            v_like_w * (ln(1 + p.like_count) / ln(1 + v_p95_likes))
+          + v_velocity_w * (COALESCE(v.velocity, 0)::DOUBLE PRECISION / v_p95_velocity)
+          + v_freshness_w * EXP(-v_decay_rate * EXTRACT(EPOCH FROM (now() - p.created_at)) / 3600.0)
+        ),
+        now()
+    FROM posts p
+    LEFT JOIN LATERAL (
+        SELECT SUM(pvh.view_count) AS velocity
+        FROM post_view_hourly pvh
+        WHERE pvh.post_id = p.id
+          AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+    ) v ON TRUE
+    WHERE p.is_hidden = FALSE
+      AND p.expires_at > now()
+    ON CONFLICT (post_id)
+    DO UPDATE SET
+        base_score = EXCLUDED.base_score,
+        scored_at = EXCLUDED.scored_at;
+
+    -- ──────────────────────────────────────────────────
+    -- Step 3: Remove scores for expired/hidden posts
+    -- ──────────────────────────────────────────────────
+    DELETE FROM feed_scores
+    WHERE post_id NOT IN (
+        SELECT id FROM posts
+        WHERE is_hidden = FALSE AND expires_at > now()
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule via Supabase pg_cron:
+-- SELECT cron.schedule('refresh-feed-scores', '*/5 * * * *', 'SELECT refresh_feed_scores()');
+
+-- --------------------------------------------------------------------------
+-- MAIN FEED (Discovery — ranked, reads pre-scored table)
+-- --------------------------------------------------------------------------
+-- Cost per request: index scan on feed_scores + small JOINs.
+-- No more 3M-row sequential scan. No correlated subqueries.
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_main_feed(
     p_cursor_score DOUBLE PRECISION DEFAULT NULL,
@@ -50,133 +150,67 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
     v_viewer_id UUID := auth_uid();
-    v_like_w DOUBLE PRECISION := 0.20;
-    v_velocity_w DOUBLE PRECISION := 0.25;
-    v_freshness_w DOUBLE PRECISION := 0.45;
-    v_personal_w DOUBLE PRECISION := 0.10;
-    v_decay_rate DOUBLE PRECISION := 0.05;
+    v_personal_w DOUBLE PRECISION := 0.15;
     v_max_author_exposure INT := 2;
 BEGIN
     RETURN QUERY
-    WITH candidate_posts AS (
-        -- Gather active, public, non-hidden, non-blocked posts
-        SELECT
-            p.id AS post_id,
-            p.user_id AS post_user_id,
-            p.image_url AS post_image_url,
-            p.image_width AS post_image_width,
-            p.image_height AS post_image_height,
-            p.like_count AS post_like_count,
-            p.view_count AS post_view_count,
-            p.created_at AS post_created_at,
-            u.username AS post_username,
-            u.profile_photo_url AS post_author_photo
-        FROM posts p
-        JOIN users u ON u.id = p.user_id
-        WHERE p.is_hidden = FALSE
-          AND p.expires_at > now()
-          AND u.visibility = 'public'
-          AND u.is_banned = FALSE
-          -- Exclude blocked users (both directions)
-          AND NOT EXISTS (
-              SELECT 1 FROM blocks b
-              WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
-                 OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
-          )
+    WITH viewer_follows AS (
+        -- Pre-fetch viewer's follow list (typically small set)
+        SELECT f.following_id
+        FROM follows f
+        WHERE f.follower_id = v_viewer_id
+          AND f.is_approved = TRUE
     ),
-    batch_stats AS (
-        SELECT
-            GREATEST(1, MAX(post_like_count)) AS max_likes,
-            GREATEST(1, MAX(
-                COALESCE((
-                    SELECT SUM(pvh.view_count)
-                    FROM post_view_hourly pvh
-                    WHERE pvh.post_id = cp.post_id
-                      AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
-                ), 0)
-            )) AS max_velocity
-        FROM candidate_posts cp
+    viewer_blocks AS (
+        -- Pre-fetch viewer's block list
+        SELECT b.blocked_id AS uid FROM blocks b WHERE b.blocker_id = v_viewer_id
+        UNION ALL
+        SELECT b.blocker_id AS uid FROM blocks b WHERE b.blocked_id = v_viewer_id
     ),
-    scored AS (
+    scored_feed AS (
         SELECT
-            cp.*,
-            -- View velocity: views in last hour
-            COALESCE((
-                SELECT SUM(pvh.view_count)
-                FROM post_view_hourly pvh
-                WHERE pvh.post_id = cp.post_id
-                  AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
-            ), 0) AS recent_views,
-            -- Is viewer following this author
-            EXISTS (
-                SELECT 1 FROM follows f
-                WHERE f.follower_id = v_viewer_id
-                  AND f.following_id = cp.post_user_id
-                  AND f.is_approved = TRUE
-            ) AS viewer_follows,
-            -- Hours since creation
-            EXTRACT(EPOCH FROM (now() - cp.post_created_at)) / 3600.0 AS hours_age
-        FROM candidate_posts cp
-    ),
-    ranked AS (
-        SELECT
-            s.post_id,
-            s.post_user_id,
-            s.post_username,
-            s.post_author_photo,
-            s.post_image_url,
-            s.post_image_width,
-            s.post_image_height,
-            s.post_like_count,
-            s.post_view_count,
-            s.post_created_at,
-            -- Compute score
-            (
-                v_like_w * (ln(1 + s.post_like_count) / ln(1 + bs.max_likes))
-              + v_velocity_w * (s.recent_views::DOUBLE PRECISION / bs.max_velocity)
-              + v_freshness_w * EXP(-v_decay_rate * s.hours_age)
-              + v_personal_w * (CASE WHEN s.viewer_follows THEN 1.0 ELSE 0.0 END)
-            ) AS computed_score,
-            -- Exposure cap: count how many posts from this author viewer has seen today
-            COALESCE((
-                SELECT fe.exposure_count
-                FROM feed_exposures fe
-                WHERE fe.viewer_id = v_viewer_id
-                  AND fe.author_id = s.post_user_id
-                  AND fe.feed_date = CURRENT_DATE
-            ), 0) AS author_exposure_today
-        FROM scored s
-        CROSS JOIN batch_stats bs
+            fs.post_id,
+            fs.author_id,
+            fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END) AS final_score,
+            -- Exposure cap: count from rolling 24h window
+            COALESCE(fe.exposure_count, 0) AS author_exposure,
+            -- Reset exposure counter if window expired
+            CASE WHEN fe.window_start IS NOT NULL AND fe.window_start > now() - INTERVAL '24 hours'
+                THEN COALESCE(fe.exposure_count, 0) ELSE 0 END AS active_exposure
+        FROM feed_scores fs
+        LEFT JOIN viewer_follows vf ON vf.following_id = fs.author_id
+        LEFT JOIN feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
+        WHERE fs.author_id NOT IN (SELECT uid FROM viewer_blocks)
     ),
     filtered AS (
-        SELECT r.*
-        FROM ranked r
-        WHERE r.author_exposure_today < v_max_author_exposure
+        SELECT sf.*
+        FROM scored_feed sf
+        WHERE sf.active_exposure < v_max_author_exposure
           -- Cursor-based pagination: score DESC, then id DESC for tie-breaking
           AND (
               p_cursor_score IS NULL
-              OR r.computed_score < p_cursor_score
-              OR (r.computed_score = p_cursor_score AND r.post_id < p_cursor_id)
+              OR sf.final_score < p_cursor_score
+              OR (sf.final_score = p_cursor_score AND sf.post_id < p_cursor_id)
           )
-        ORDER BY r.computed_score DESC, r.post_id DESC
+        ORDER BY sf.final_score DESC, sf.post_id DESC
         LIMIT p_limit
     )
     SELECT
-        f.post_id,
-        f.post_user_id,
-        f.post_username,
-        f.post_author_photo,
-        f.post_image_url,
-        f.post_image_width,
-        f.post_image_height,
-        f.post_like_count,
-        f.post_view_count,
+        p.id,
+        p.user_id,
+        u.username,
+        u.profile_photo_url,
+        p.image_url,
+        p.image_width,
+        p.image_height,
+        p.like_count,
+        p.view_count,
         EXISTS (
             SELECT 1 FROM likes l
-            WHERE l.post_id = f.post_id AND l.user_id = v_viewer_id
+            WHERE l.post_id = p.id AND l.user_id = v_viewer_id
         ) AS is_liked,
-        f.post_created_at,
-        f.computed_score,
+        p.created_at,
+        f.final_score,
         COALESCE(
             (SELECT jsonb_agg(
                 jsonb_build_object(
@@ -186,24 +220,43 @@ BEGIN
                     'position_y', t.position_y
                 )
             )
-            FROM tags t WHERE t.post_id = f.post_id),
+            FROM tags t WHERE t.post_id = p.id),
             '[]'::JSONB
         ) AS tags
     FROM filtered f
-    ORDER BY f.computed_score DESC, f.post_id DESC;
+    JOIN posts p ON p.id = f.post_id
+    JOIN users u ON u.id = p.user_id
+    WHERE u.visibility = 'public'
+      AND u.is_banned = FALSE
+      AND p.is_hidden = FALSE
+      AND p.expires_at > now()
+    ORDER BY f.final_score DESC, f.post_id DESC;
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- --------------------------------------------------------------------------
--- RECORD FEED EXPOSURE (called after serving feed results)
+-- RECORD FEED EXPOSURE (rolling 24h window)
+-- --------------------------------------------------------------------------
+-- Called after serving feed results. Uses rolling window instead of calendar day.
+-- If the window has expired (>24h), resets the counter to 1.
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION record_feed_exposures(p_author_ids UUID[])
 RETURNS void AS $$
 BEGIN
-    INSERT INTO feed_exposures (viewer_id, author_id, feed_date, exposure_count)
-    SELECT auth_uid(), aid, CURRENT_DATE, 1
+    INSERT INTO feed_exposures (viewer_id, author_id, exposure_count, window_start)
+    SELECT auth_uid(), aid, 1, now()
     FROM unnest(p_author_ids) AS aid
-    ON CONFLICT (viewer_id, author_id, feed_date)
-    DO UPDATE SET exposure_count = feed_exposures.exposure_count + 1;
+    ON CONFLICT (viewer_id, author_id)
+    DO UPDATE SET
+        exposure_count = CASE
+            WHEN feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN feed_exposures.exposure_count + 1
+            ELSE 1
+        END,
+        window_start = CASE
+            WHEN feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN feed_exposures.window_start
+            ELSE now()
+        END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

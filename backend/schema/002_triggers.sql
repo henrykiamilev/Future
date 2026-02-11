@@ -179,29 +179,6 @@ CREATE TRIGGER follow_after_change
     EXECUTE FUNCTION trg_follow_count_change();
 
 -- --------------------------------------------------------------------------
--- VIEW COUNT DENORMALIZATION + HOURLY AGGREGATION
--- --------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION trg_view_count_increment()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE posts SET view_count = view_count + 1
-    WHERE id = NEW.post_id;
-
-    INSERT INTO post_view_hourly (post_id, hour_bucket, view_count)
-    VALUES (NEW.post_id, date_trunc('hour', NEW.created_at), 1)
-    ON CONFLICT (post_id, hour_bucket)
-    DO UPDATE SET view_count = post_view_hourly.view_count + 1;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER view_after_insert
-    AFTER INSERT ON post_views
-    FOR EACH ROW
-    EXECUTE FUNCTION trg_view_count_increment();
-
--- --------------------------------------------------------------------------
 -- updated_at AUTO-UPDATE
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_set_updated_at()

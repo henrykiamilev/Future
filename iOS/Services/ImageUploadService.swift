@@ -2,18 +2,23 @@ import Foundation
 import UIKit
 
 // ============================================================================
-// IMAGE UPLOAD SERVICE
+// IMAGE UPLOAD SERVICE — SUPABASE STORAGE
 // ============================================================================
 //
-// Pipeline:  UIImage → compress → presign → upload to S3/Supabase → return URL
+// Pipeline:  UIImage → compress → upload to Supabase Storage → return URL
+//
+// Supabase Storage flow:
+//   1. Compress image (HEIC preferred, JPEG fallback)
+//   2. Upload directly to /storage/v1/object/{bucket}/{path}
+//      with Bearer token (no presign step needed)
+//   3. Public URL: /storage/v1/object/public/{bucket}/{path}
 //
 // Features:
 //   - Compression runs off the main thread
-//   - Presigned URL flow (works with S3 and Supabase Storage)
+//   - Direct upload to Supabase Storage (no presign round-trip)
 //   - URLSession upload task with delegate-based progress tracking
 //   - Retry with exponential backoff on transient failures
 //   - Cooperative cancellation via Task.isCancelled
-//   - Full error mapping
 //
 // ============================================================================
 
@@ -37,7 +42,6 @@ struct UploadedImage: Sendable {
 
 enum UploadError: LocalizedError {
     case compressionFailed(underlying: String)
-    case presignFailed(underlying: String)
     case uploadFailed(statusCode: Int, attempt: Int)
     case uploadFailedAllRetries
     case cancelled
@@ -45,7 +49,6 @@ enum UploadError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .compressionFailed(let e):       return "Image compression failed: \(e)"
-        case .presignFailed(let e):           return "Could not prepare upload: \(e)"
         case .uploadFailed(let code, let n):  return "Upload failed (HTTP \(code), attempt \(n))."
         case .uploadFailedAllRetries:         return "Upload failed after multiple attempts. Check your connection."
         case .cancelled:                      return "Upload was cancelled."
@@ -57,23 +60,34 @@ enum UploadError: LocalizedError {
 
 final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
 
-    private let client: APIClientProtocol
+    private let baseURL: URL         // Supabase project URL
+    private let anonKey: String      // Supabase anon key for apikey header
+    private let tokenProvider: TokenProvider
     private let compressor: ImageCompressorProtocol
+    private let bucket: String
     private let maxRetries = 3
-    private let baseRetryDelay: UInt64 = 1_000_000_000  // 1 second in nanoseconds
+    private let baseRetryDelay: UInt64 = 1_000_000_000  // 1 second
 
-    init(client: APIClientProtocol, compressor: ImageCompressorProtocol = ImageCompressor()) {
-        self.client = client
+    init(
+        baseURL: URL,
+        anonKey: String,
+        tokenProvider: TokenProvider,
+        compressor: ImageCompressorProtocol = ImageCompressor(),
+        bucket: String = "post-images"
+    ) {
+        self.baseURL = baseURL
+        self.anonKey = anonKey
+        self.tokenProvider = tokenProvider
         self.compressor = compressor
+        self.bucket = bucket
     }
 
-    /// Full pipeline: compress → presign → upload → return public URL.
+    /// Full pipeline: compress → upload to Supabase Storage → return public URL.
     ///
     /// Progress callback reports 0.0–1.0 across the full pipeline:
     ///   - 0.0–0.2: compression
-    ///   - 0.2–0.3: presign request
-    ///   - 0.3–0.9: S3 upload
-    ///   - 0.9–1.0: post-upload verification
+    ///   - 0.2–0.9: Supabase Storage upload
+    ///   - 0.9–1.0: finalization
     func upload(
         image: UIImage,
         onProgress: @Sendable @escaping (Double) -> Void
@@ -98,43 +112,36 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         try Task.checkCancellation()
 
         // ──────────────────────────────────────────────
-        // Phase 2: Request presigned upload URL
+        // Phase 2: Upload directly to Supabase Storage
         // ──────────────────────────────────────────────
-        let presign: PresignResponse
-        do {
-            presign = try await client.request(
-                .requestUploadURL(
-                    contentType: compressed.contentType,
-                    fileSizeBytes: compressed.sizeBytes
-                )
-            )
-        } catch {
-            throw UploadError.presignFailed(underlying: error.localizedDescription)
-        }
+        // Generate a unique file path: {user_id_prefix}/{uuid}.{ext}
+        let ext = compressed.format == .heic ? "heic" : "jpg"
+        let fileName = "\(UUID().uuidString).\(ext)"
+        let storagePath = "/storage/v1/object/\(bucket)/\(fileName)"
+        let uploadURL = baseURL.appendingPathComponent(storagePath)
 
-        onProgress(0.30)
-        try Task.checkCancellation()
-
-        // ──────────────────────────────────────────────
-        // Phase 3: Upload to S3/Supabase with retry
-        // ──────────────────────────────────────────────
         try await uploadWithRetry(
             data: compressed.data,
-            to: presign.uploadURL,
+            to: uploadURL,
             contentType: compressed.contentType,
             onProgress: { fraction in
-                // Map 0.0–1.0 upload progress into 0.3–0.9 overall
-                onProgress(0.30 + fraction * 0.60)
+                // Map 0.0–1.0 upload progress into 0.2–0.9 overall
+                onProgress(0.20 + fraction * 0.70)
             }
         )
 
         onProgress(0.95)
         try Task.checkCancellation()
 
+        // Construct public URL
+        let publicURL = baseURL
+            .appendingPathComponent("/storage/v1/object/public/\(bucket)/\(fileName)")
+            .absoluteString
+
         onProgress(1.0)
 
         return UploadedImage(
-            url: presign.publicURL,
+            url: publicURL,
             width: compressed.width,
             height: compressed.height,
             sizeBytes: compressed.sizeBytes,
@@ -165,7 +172,6 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
                 return // success
             } catch let error as UploadError {
                 lastError = error
-                // Only retry on transient upload failures
                 if case .uploadFailed = error, attempt < maxRetries {
                     let delay = baseRetryDelay * UInt64(1 << (attempt - 1)) // 1s, 2s, 4s
                     try await Task.sleep(nanoseconds: delay)
@@ -192,17 +198,30 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         onProgress: @Sendable @escaping (Double) -> Void
     ) async throws {
         var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
+        request.httpMethod = "POST"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("\(data.count)", forHTTPHeaderField: "Content-Length")
+        // Supabase Storage requires apikey + Bearer token
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        if let token = tokenProvider.currentToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
-        // Use upload delegate for byte-level progress
         let delegate = UploadProgressDelegate(onProgress: onProgress)
-        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 120
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
 
-        defer { session.finishTasksAndInvalidate() }
+        let (_, response): (Data, URLResponse)
+        do {
+            (_, response) = try await session.upload(for: request, from: data)
+        } catch {
+            session.invalidateAndCancel()
+            throw error
+        }
 
-        let (_, response) = try await session.upload(for: request, from: data)
+        session.invalidateAndCancel()
 
         guard let http = response as? HTTPURLResponse else {
             throw UploadError.uploadFailed(statusCode: 0, attempt: 1)
@@ -235,33 +254,4 @@ private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, Se
         let fraction = Double(totalBytesSent) / Double(totalBytesExpectedToSend)
         onProgress(min(fraction, 1.0))
     }
-}
-
-// MARK: - Presign Response
-
-private struct PresignResponse: Decodable, Sendable {
-    let uploadURL: URL       // S3 presigned PUT URL
-    let publicURL: String    // CDN-accessible URL after upload completes
-
-    enum CodingKeys: String, CodingKey {
-        case uploadURL = "uploadUrl"
-        case publicURL = "publicUrl"
-    }
-}
-
-// MARK: - Endpoint Extension
-
-extension APIEndpoint {
-    static func requestUploadURL(contentType: String, fileSizeBytes: Int) -> APIEndpoint {
-        APIEndpoint(
-            path: "/uploads/presign",
-            method: .POST,
-            body: PresignRequest(contentType: contentType, fileSizeBytes: fileSizeBytes)
-        )
-    }
-}
-
-private struct PresignRequest: Encodable, Sendable {
-    let contentType: String
-    let fileSizeBytes: Int
 }

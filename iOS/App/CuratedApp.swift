@@ -14,6 +14,15 @@ struct CuratedApp: App {
     }
 }
 
+// MARK: - Supabase Configuration
+
+enum SupabaseConfig {
+    // These should be loaded from a plist or environment in production.
+    // The anon key is safe to embed client-side — RLS protects data.
+    static let projectURL = URL(string: "https://YOUR_PROJECT.supabase.co")!
+    static let anonKey = "YOUR_SUPABASE_ANON_KEY"
+}
+
 // MARK: - App-Wide Dependency Container
 
 @MainActor
@@ -34,8 +43,11 @@ final class AppState: ObservableObject {
 
     init() {
         let token = KeychainTokenProvider()
-        let baseURL = URL(string: "https://api.example.com/v1")!
-        let client = APIClient(baseURL: baseURL, tokenProvider: token)
+        let client = APIClient(
+            baseURL: SupabaseConfig.projectURL,
+            tokenProvider: token,
+            supabaseAnonKey: SupabaseConfig.anonKey
+        )
 
         self.tokenProvider = token
         self.apiClient = client
@@ -43,7 +55,11 @@ final class AppState: ObservableObject {
         self.feedService = FeedService(client: client)
         self.postService = PostService(client: client)
         self.profileService = ProfileService(client: client)
-        self.imageUploadService = ImageUploadService(client: client)
+        self.imageUploadService = ImageUploadService(
+            baseURL: SupabaseConfig.projectURL,
+            anonKey: SupabaseConfig.anonKey,
+            tokenProvider: token
+        )
 
         self.isAuthenticated = token.currentToken != nil
     }

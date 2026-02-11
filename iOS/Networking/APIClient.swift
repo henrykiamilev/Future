@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 protocol APIClientProtocol: Sendable {
     func request<T: Decodable>(_ endpoint: APIEndpoint) async throws -> T
@@ -13,11 +14,13 @@ final class APIClient: APIClientProtocol, Sendable {
     private let tokenProvider: TokenProvider
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let supabaseAnonKey: String
 
-    init(baseURL: URL, session: URLSession = .shared, tokenProvider: TokenProvider) {
+    init(baseURL: URL, session: URLSession = .shared, tokenProvider: TokenProvider, supabaseAnonKey: String) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
+        self.supabaseAnonKey = supabaseAnonKey
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -98,8 +101,14 @@ final class APIClient: APIClientProtocol, Sendable {
         request.httpMethod = endpoint.method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        // Supabase requires apikey header on all requests
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+
         if let token = tokenProvider.currentToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else {
+            // Use anon key as bearer when not authenticated
+            request.setValue("Bearer \(supabaseAnonKey)", forHTTPHeaderField: "Authorization")
         }
 
         if let body = endpoint.body {
@@ -153,19 +162,52 @@ protocol TokenProvider: Sendable {
 }
 
 final class KeychainTokenProvider: TokenProvider, Sendable {
-    private let keychainKey = "auth_token"
+    private let service = "com.curated.app"
+    private let account = "auth_token"
 
     var currentToken: String? {
-        // In production: read from Keychain via SecItemCopyMatching.
-        // Placeholder for integration with Cognito / Supabase Auth.
-        UserDefaults.standard.string(forKey: keychainKey)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let token = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return token
     }
 
     func store(token: String) {
-        UserDefaults.standard.set(token, forKey: keychainKey)
+        guard let data = token.data(using: .utf8) else { return }
+
+        // Delete any existing token first
+        clear()
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+
+        SecItemAdd(query as CFDictionary, nil)
     }
 
     func clear() {
-        UserDefaults.standard.removeObject(forKey: keychainKey)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
     }
 }

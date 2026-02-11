@@ -25,17 +25,48 @@ final class AuthService: AuthServiceProtocol, Sendable {
     }
 
     func signIn(email: String, password: String) async throws {
-        let response: AuthResponse = try await client.request(
-            APIEndpoint(path: "/auth/signin", method: .POST, body: AuthRequest(email: email, password: password))
+        // Supabase Auth: POST /auth/v1/token?grant_type=password
+        let response: SupabaseAuthResponse = try await client.request(
+            APIEndpoint(
+                path: "/auth/v1/token",
+                method: .POST,
+                queryItems: [.init(name: "grant_type", value: "password")],
+                body: SupabaseSignIn(email: email, password: password)
+            )
         )
         tokenProvider.store(token: response.accessToken)
     }
 
     func signUp(username: String, email: String, password: String) async throws {
-        let response: AuthResponse = try await client.request(
-            APIEndpoint(path: "/auth/signup", method: .POST, body: SignUpRequest(username: username, email: email, password: password))
+        // Supabase Auth: POST /auth/v1/signup
+        // Pass username in user_metadata so we can use it in the trigger/hook
+        let response: SupabaseAuthResponse = try await client.request(
+            APIEndpoint(
+                path: "/auth/v1/signup",
+                method: .POST,
+                body: SupabaseSignUp(
+                    email: email,
+                    password: password,
+                    data: UserMetadata(username: username)
+                )
+            )
         )
         tokenProvider.store(token: response.accessToken)
+
+        // Create the user row in our users table (Supabase Auth creates
+        // auth.users, but we need a row in public.users for our schema).
+        // This is typically handled by a Supabase database trigger on
+        // auth.users INSERT, but we also call it explicitly as a fallback.
+        try? await client.requestVoid(
+            APIEndpoint(
+                path: "/rest/v1/users",
+                method: .POST,
+                body: CreateUserRow(
+                    id: response.user.id,
+                    username: username
+                )
+            )
+        )
     }
 
     func signOut() {
@@ -43,10 +74,18 @@ final class AuthService: AuthServiceProtocol, Sendable {
     }
 
     private func extractUserID(from token: String) -> UUID? {
+        // Decode JWT payload to extract Supabase 'sub' claim
         let segments = token.split(separator: ".")
-        guard segments.count >= 2,
-              let data = Data(base64Encoded: String(segments[1])
-                  .padding(toLength: ((String(segments[1]).count + 3) / 4) * 4, withPad: "=", startingAt: 0)),
+        guard segments.count >= 2 else { return nil }
+
+        var base64 = String(segments[1])
+        // Pad to multiple of 4
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+
+        guard let data = Data(base64Encoded: base64),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sub = json["sub"] as? String else {
             return nil
@@ -55,23 +94,45 @@ final class AuthService: AuthServiceProtocol, Sendable {
     }
 }
 
-private struct AuthRequest: Encodable, Sendable {
+// MARK: - Supabase Auth Types
+
+private struct SupabaseSignIn: Encodable, Sendable {
     let email: String
     let password: String
 }
 
-private struct SignUpRequest: Encodable, Sendable {
+private struct SupabaseSignUp: Encodable, Sendable {
+    let email: String
+    let password: String
+    let data: UserMetadata
+}
+
+private struct UserMetadata: Encodable, Sendable {
     let username: String
-    let email: String
-    let password: String
 }
 
-private struct AuthResponse: Decodable, Sendable {
+private struct SupabaseAuthResponse: Decodable, Sendable {
     let accessToken: String
-    let userID: UUID
+    let tokenType: String
+    let expiresIn: Int
+    let refreshToken: String
+    let user: SupabaseUser
 
     enum CodingKeys: String, CodingKey {
-        case accessToken
-        case userID = "userId"
+        case accessToken = "access_token"
+        case tokenType = "token_type"
+        case expiresIn = "expires_in"
+        case refreshToken = "refresh_token"
+        case user
     }
+}
+
+private struct SupabaseUser: Decodable, Sendable {
+    let id: UUID
+    let email: String?
+}
+
+private struct CreateUserRow: Encodable, Sendable {
+    let id: UUID
+    let username: String
 }
