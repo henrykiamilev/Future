@@ -1,0 +1,56 @@
+import Foundation
+
+struct User: Codable, Identifiable, Equatable, Sendable {
+    let id: UUID
+    let username: String
+    let displayName: String?
+    let profilePhotoURL: String?
+    let bio: String?
+    let visibility: AccountVisibility
+    let instagramHandle: String?
+    let snapchatHandle: String?
+    let totalLikes: Int
+    let followerCount: Int
+    let followingCount: Int
+    let lastPostAt: Date?
+    let createdAt: Date
+
+    enum AccountVisibility: String, Codable, Sendable {
+        case `public`
+        case `private`
+    }
+}
+
+struct UserProfile: Codable, Sendable {
+    let user: UserProfileData
+    let signaturePosts: [PostSummary]
+    let livePosts: [PostSummary]
+
+    struct UserProfileData: Codable, Sendable {
+        let id: UUID
+        let username: String
+        let displayName: String?
+        let profilePhotoURL: String?
+        let bio: String?
+        let visibility: User.AccountVisibility
+        let instagramHandle: String?
+        let snapchatHandle: String?
+        let totalLikes: Int
+        let followerCount: Int
+        let followingCount: Int
+        let isFollowing: Bool
+        let isFollower: Bool
+        let followIsPending: Bool
+        let isOwnProfile: Bool
+    }
+}
+
+struct PostSummary: Codable, Identifiable, Sendable {
+    let id: UUID
+    let imageURL: String
+    let imageWidth: Int
+    let imageHeight: Int
+    let likeCount: Int
+    let createdAt: Date
+    let tags: [Tag]
+}
