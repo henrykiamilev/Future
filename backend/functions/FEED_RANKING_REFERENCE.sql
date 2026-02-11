@@ -1,0 +1,765 @@
+-- ============================================================================
+-- FEED RANKING SYSTEM — ISOLATED REFERENCE
+-- ============================================================================
+-- This file is a self-contained reference for the entire feed ranking system.
+-- It documents every formula, every query, every index, and every edge case.
+-- Nothing conceptual. Implementation only.
+-- ============================================================================
+
+
+-- ############################################################################
+-- 1. SCORING FORMULA — EXACT DEFINITION
+-- ############################################################################
+--
+-- For each candidate post in the Main feed, the score is computed as:
+--
+--   score = W_like * S_like
+--         + W_velocity * S_velocity
+--         + W_freshness * S_freshness
+--         + W_personal * S_personal
+--
+-- ┌────────────────────┬───────┬─────────────────────────────────────────────┐
+-- │ Component          │ Weight│ Formula                                     │
+-- ├────────────────────┼───────┼─────────────────────────────────────────────┤
+-- │ S_like             │ 0.20  │ ln(1 + like_count) / ln(1 + max_likes)     │
+-- │ S_velocity         │ 0.25  │ recent_views_1h / max_velocity             │
+-- │ S_freshness        │ 0.45  │ e^(-0.05 * hours_since_creation)           │
+-- │ S_personal         │ 0.10  │ 1.0 if viewer follows author, else 0.0     │
+-- └────────────────────┴───────┴─────────────────────────────────────────────┘
+--
+-- Weights sum to 1.00. Each component is normalized to [0, 1].
+--
+-- DEFINITIONS:
+--
+--   like_count          = posts.like_count (denormalized, trigger-maintained)
+--   max_likes           = MAX(like_count) across all candidates in the current
+--                         batch. Floored to 1 via GREATEST(1, ...) to avoid /0.
+--
+--   recent_views_1h     = SUM(post_view_hourly.view_count) for the post where
+--                         hour_bucket >= date_trunc('hour', now()) - '1 hour'.
+--                         This captures the current + previous hour bucket.
+--   max_velocity        = MAX(recent_views_1h) across all candidates. Floored to 1.
+--
+--   hours_since_creation = EXTRACT(EPOCH FROM (now() - posts.created_at)) / 3600.0
+--
+--   viewer follows author = EXISTS in follows where follower_id = viewer,
+--                           following_id = author, is_approved = TRUE.
+--
+--
+-- WORKED EXAMPLE:
+-- ───────────────
+-- Post A: 150 likes, 80 views/hour, created 6 hours ago, viewer follows author
+-- Post B: 300 likes, 20 views/hour, created 30 hours ago, viewer does not follow
+-- Batch max_likes = 300, max_velocity = 80
+--
+-- Post A score:
+--   S_like     = ln(151) / ln(301)               = 5.017 / 5.707 = 0.879
+--   S_velocity = 80 / 80                          = 1.000
+--   S_freshness = e^(-0.05 * 6)                   = e^(-0.30)     = 0.741
+--   S_personal = 1.0
+--   score = 0.20*0.879 + 0.25*1.000 + 0.45*0.741 + 0.10*1.0
+--         = 0.176 + 0.250 + 0.333 + 0.100
+--         = 0.859
+--
+-- Post B score:
+--   S_like     = ln(301) / ln(301)               = 1.000
+--   S_velocity = 20 / 80                          = 0.250
+--   S_freshness = e^(-0.05 * 30)                  = e^(-1.50)     = 0.223
+--   S_personal = 0.0
+--   score = 0.20*1.000 + 0.25*0.250 + 0.45*0.223 + 0.10*0.0
+--         = 0.200 + 0.063 + 0.100 + 0.000
+--         = 0.363
+--
+-- Result: Post A (0.859) ranks above Post B (0.363).
+-- A newer, trending post from a followed author beats an older viral post.
+
+
+-- ############################################################################
+-- 2. FRESHNESS DECAY — MATHEMATICAL FORM
+-- ############################################################################
+--
+-- Function:
+--   f(h) = e^(-λh)
+--
+-- Where:
+--   h = hours since post creation
+--   λ = 0.05 (decay constant)
+--
+-- Properties:
+--   f(0)  = 1.000   — brand new post, full freshness
+--   f(1)  = 0.951   — 1 hour old
+--   f(6)  = 0.741   — 6 hours old
+--   f(14) = 0.497   — ~14 hours: half-life (50% freshness)
+--   f(24) = 0.301   — 1 day old
+--   f(48) = 0.091   — 2 days old
+--   f(72) = 0.027   — 3 days old (approaching expiration)
+--
+-- Half-life derivation:
+--   e^(-0.05 * t_half) = 0.5
+--   -0.05 * t_half = ln(0.5)
+--   t_half = -ln(0.5) / 0.05
+--   t_half = 0.6931 / 0.05
+--   t_half ≈ 13.86 hours
+--
+-- The SQL expression:
+--   EXP(-0.05 * (EXTRACT(EPOCH FROM (now() - posts.created_at)) / 3600.0))
+--
+-- This means:
+--   - Posts created within the last hour have near-maximum freshness contribution
+--   - At 14 hours, freshness contributes ~50% of its max (0.45 * 0.5 = 0.225)
+--   - At 48 hours, freshness contributes ~9% of its max (0.45 * 0.091 = 0.041)
+--   - At 72 hours (expiry), freshness is negligible (0.45 * 0.027 = 0.012)
+--
+-- With a weight of 0.45, freshness is the single strongest signal. This enforces
+-- the PRD requirement that the feed feels fresh and editorial, not stale.
+
+
+-- ############################################################################
+-- 3. EXPOSURE CAP LOGIC — PER AUTHOR PER DAY
+-- ############################################################################
+--
+-- Goal: No single author dominates a viewer's feed.
+-- Cap:  2 posts per author per viewer per calendar day.
+--
+-- STORAGE:
+--   TABLE feed_exposures (
+--       viewer_id       UUID,
+--       author_id       UUID,
+--       feed_date       DATE,         -- CURRENT_DATE at time of serving
+--       exposure_count  INT,
+--       PRIMARY KEY (viewer_id, author_id, feed_date)
+--   )
+--
+-- FILTERING (inside ranked query):
+--   WHERE COALESCE(
+--       (SELECT fe.exposure_count FROM feed_exposures fe
+--        WHERE fe.viewer_id = v_viewer_id
+--          AND fe.author_id = post.user_id
+--          AND fe.feed_date = CURRENT_DATE),
+--       0
+--   ) < 2    -- v_max_author_exposure
+--
+-- RECORDING (after serving a feed page):
+--   The API layer collects the distinct author_ids from the returned page
+--   and calls record_feed_exposures(). This is an UPSERT:
+
+CREATE OR REPLACE FUNCTION record_feed_exposures(p_author_ids UUID[])
+RETURNS void AS $$
+BEGIN
+    INSERT INTO feed_exposures (viewer_id, author_id, feed_date, exposure_count)
+    SELECT auth_uid(), aid, CURRENT_DATE, 1
+    FROM unnest(p_author_ids) AS aid
+    ON CONFLICT (viewer_id, author_id, feed_date)
+    DO UPDATE SET exposure_count = feed_exposures.exposure_count + 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- CLEANUP (daily, via pg_cron or external scheduler):
+--   DELETE FROM feed_exposures WHERE feed_date < CURRENT_DATE - 2;
+--
+-- EDGE CASES:
+--   - If an author has only 1 post in the 3-day window, cap is irrelevant.
+--   - If an author posts once per 24h, they can have up to 3 active posts.
+--     The cap of 2 means the viewer sees at most 2 of those 3 per day.
+--   - Exposure is tracked per calendar day (UTC). At midnight, the counter resets.
+--   - The cap is checked AFTER scoring, not before. A capped post is simply
+--     excluded from the result set. Scoring still runs on all candidates.
+
+
+-- ############################################################################
+-- 4. MAIN FEED — RANKED, CURSOR-PAGINATED, RENDER-READY
+-- ############################################################################
+
+CREATE OR REPLACE FUNCTION get_main_feed(
+    p_cursor_score DOUBLE PRECISION DEFAULT NULL,
+    p_cursor_id UUID DEFAULT NULL,
+    p_limit INT DEFAULT 20
+)
+RETURNS TABLE (
+    id UUID,
+    user_id UUID,
+    username TEXT,
+    author_photo TEXT,
+    image_url TEXT,
+    image_width INT,
+    image_height INT,
+    like_count BIGINT,
+    view_count BIGINT,
+    is_liked BOOLEAN,
+    created_at TIMESTAMPTZ,
+    score DOUBLE PRECISION,
+    tags JSONB
+) AS $$
+DECLARE
+    v_viewer_id UUID := auth_uid();
+    -- Weights (tunable constants)
+    v_like_w DOUBLE PRECISION := 0.20;
+    v_velocity_w DOUBLE PRECISION := 0.25;
+    v_freshness_w DOUBLE PRECISION := 0.45;
+    v_personal_w DOUBLE PRECISION := 0.10;
+    -- Decay constant: λ in e^(-λh), half-life ≈ 13.86 hours
+    v_decay_rate DOUBLE PRECISION := 0.05;
+    -- Max posts per author per viewer per day
+    v_max_author_exposure INT := 2;
+BEGIN
+    RETURN QUERY
+
+    -- ====================================================================
+    -- CTE 1: CANDIDATE POSTS
+    -- Filters: active (not expired), not hidden, public author, not banned,
+    -- not blocked in either direction.
+    -- This is the only scan of the posts table. All subsequent CTEs
+    -- operate on this materialized set.
+    -- ====================================================================
+    WITH candidate_posts AS (
+        SELECT
+            p.id                    AS post_id,
+            p.user_id               AS post_user_id,
+            p.image_url             AS post_image_url,
+            p.image_width           AS post_image_width,
+            p.image_height          AS post_image_height,
+            p.like_count            AS post_like_count,
+            p.view_count            AS post_view_count,
+            p.created_at            AS post_created_at,
+            u.username              AS post_username,
+            u.profile_photo_url     AS post_author_photo
+        FROM posts p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.is_hidden = FALSE
+          AND p.expires_at > now()
+          AND u.visibility = 'public'
+          AND u.is_banned = FALSE
+          AND NOT EXISTS (
+              SELECT 1 FROM blocks b
+              WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
+                 OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
+          )
+    ),
+
+    -- ====================================================================
+    -- CTE 2: BATCH NORMALIZATION STATS
+    -- Single pass over candidates to find max values for normalization.
+    -- Both floored to 1 to prevent division by zero.
+    -- ====================================================================
+    batch_stats AS (
+        SELECT
+            GREATEST(1, MAX(cp.post_like_count)) AS max_likes,
+            GREATEST(1, MAX(
+                COALESCE((
+                    SELECT SUM(pvh.view_count)
+                    FROM post_view_hourly pvh
+                    WHERE pvh.post_id = cp.post_id
+                      AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+                ), 0)
+            )) AS max_velocity
+        FROM candidate_posts cp
+    ),
+
+    -- ====================================================================
+    -- CTE 3: SCORING INPUTS
+    -- Attaches velocity, follow status, and age to each candidate.
+    -- ====================================================================
+    scored AS (
+        SELECT
+            cp.*,
+            -- View velocity: sum of views in current + previous hour bucket
+            COALESCE((
+                SELECT SUM(pvh.view_count)
+                FROM post_view_hourly pvh
+                WHERE pvh.post_id = cp.post_id
+                  AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+            ), 0) AS recent_views,
+            -- Follow relationship
+            EXISTS (
+                SELECT 1 FROM follows f
+                WHERE f.follower_id = v_viewer_id
+                  AND f.following_id = cp.post_user_id
+                  AND f.is_approved = TRUE
+            ) AS viewer_follows,
+            -- Age in fractional hours
+            EXTRACT(EPOCH FROM (now() - cp.post_created_at)) / 3600.0 AS hours_age
+        FROM candidate_posts cp
+    ),
+
+    -- ====================================================================
+    -- CTE 4: RANKED — SCORE COMPUTATION + EXPOSURE LOOKUP
+    -- This is where the formula is applied.
+    -- ====================================================================
+    ranked AS (
+        SELECT
+            s.post_id,
+            s.post_user_id,
+            s.post_username,
+            s.post_author_photo,
+            s.post_image_url,
+            s.post_image_width,
+            s.post_image_height,
+            s.post_like_count,
+            s.post_view_count,
+            s.post_created_at,
+
+            -- ════════════════════════════════════════════════════════
+            -- THE SCORE
+            -- ════════════════════════════════════════════════════════
+            (
+                -- Like component: log-dampened, batch-normalized
+                v_like_w * (ln(1.0 + s.post_like_count) / ln(1.0 + bs.max_likes))
+
+                -- Velocity component: linear, batch-normalized
+              + v_velocity_w * (s.recent_views::DOUBLE PRECISION / bs.max_velocity)
+
+                -- Freshness component: exponential decay
+              + v_freshness_w * EXP(-v_decay_rate * s.hours_age)
+
+                -- Personalization component: binary follow signal
+              + v_personal_w * (CASE WHEN s.viewer_follows THEN 1.0 ELSE 0.0 END)
+            ) AS computed_score,
+
+            -- Exposure count for this author for this viewer today
+            COALESCE((
+                SELECT fe.exposure_count
+                FROM feed_exposures fe
+                WHERE fe.viewer_id = v_viewer_id
+                  AND fe.author_id = s.post_user_id
+                  AND fe.feed_date = CURRENT_DATE
+            ), 0) AS author_exposure_today
+
+        FROM scored s
+        CROSS JOIN batch_stats bs
+    ),
+
+    -- ====================================================================
+    -- CTE 5: FILTERED — EXPOSURE CAP + CURSOR PAGINATION
+    -- ====================================================================
+    filtered AS (
+        SELECT r.*
+        FROM ranked r
+        WHERE
+            -- Exposure cap enforcement
+            r.author_exposure_today < v_max_author_exposure
+
+            -- Cursor-based pagination (score DESC, id DESC for tie-breaking)
+            -- First page: both cursors are NULL, this evaluates to TRUE
+            AND (
+                p_cursor_score IS NULL
+                OR r.computed_score < p_cursor_score
+                OR (r.computed_score = p_cursor_score AND r.post_id < p_cursor_id)
+            )
+
+        ORDER BY r.computed_score DESC, r.post_id DESC
+        LIMIT p_limit
+    )
+
+    -- ====================================================================
+    -- FINAL SELECT: Attach is_liked and tags (no N+1)
+    -- is_liked: scalar subquery per post (index on likes PK)
+    -- tags: scalar subquery with jsonb_agg (index on tags.post_id)
+    -- ====================================================================
+    SELECT
+        f.post_id,
+        f.post_user_id,
+        f.post_username,
+        f.post_author_photo,
+        f.post_image_url,
+        f.post_image_width,
+        f.post_image_height,
+        f.post_like_count,
+        f.post_view_count,
+        EXISTS (
+            SELECT 1 FROM likes l
+            WHERE l.post_id = f.post_id AND l.user_id = v_viewer_id
+        ) AS is_liked,
+        f.post_created_at,
+        f.computed_score,
+        COALESCE(
+            (SELECT jsonb_agg(
+                jsonb_build_object(
+                    'label', t.label,
+                    'external_url', t.external_url,
+                    'position_x', t.position_x,
+                    'position_y', t.position_y
+                )
+            )
+            FROM tags t WHERE t.post_id = f.post_id),
+            '[]'::JSONB
+        ) AS tags
+    FROM filtered f
+    ORDER BY f.computed_score DESC, f.post_id DESC;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+
+-- ############################################################################
+-- 5. FRIENDS FEED — REVERSE CHRONOLOGICAL, CURSOR-PAGINATED
+-- ############################################################################
+--
+-- No ranking. Pure reverse chronological among followed users.
+-- Same render-ready shape as Main feed (minus score).
+
+CREATE OR REPLACE FUNCTION get_friends_feed(
+    p_cursor TIMESTAMPTZ DEFAULT NULL,
+    p_limit INT DEFAULT 20
+)
+RETURNS TABLE (
+    id UUID,
+    user_id UUID,
+    username TEXT,
+    author_photo TEXT,
+    image_url TEXT,
+    image_width INT,
+    image_height INT,
+    like_count BIGINT,
+    view_count BIGINT,
+    is_liked BOOLEAN,
+    created_at TIMESTAMPTZ,
+    tags JSONB
+) AS $$
+DECLARE
+    v_viewer_id UUID := auth_uid();
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.id,
+        p.user_id,
+        u.username,
+        u.profile_photo_url,
+        p.image_url,
+        p.image_width,
+        p.image_height,
+        p.like_count,
+        p.view_count,
+        -- is_liked: uses likes PK (user_id, post_id)
+        EXISTS (
+            SELECT 1 FROM likes l
+            WHERE l.post_id = p.id AND l.user_id = v_viewer_id
+        ) AS is_liked,
+        p.created_at,
+        -- tags: aggregated inline, not a join
+        COALESCE(
+            (SELECT jsonb_agg(
+                jsonb_build_object(
+                    'label', t.label,
+                    'external_url', t.external_url,
+                    'position_x', t.position_x,
+                    'position_y', t.position_y
+                )
+            )
+            FROM tags t WHERE t.post_id = p.id),
+            '[]'::JSONB
+        ) AS tags
+
+    FROM posts p
+    JOIN users u ON u.id = p.user_id
+
+    WHERE p.is_hidden = FALSE
+      AND p.expires_at > now()                      -- 3-day window
+      AND u.is_banned = FALSE
+
+      -- FOLLOW FILTER: only posts from approved follows
+      AND EXISTS (
+          SELECT 1 FROM follows f
+          WHERE f.follower_id = v_viewer_id
+            AND f.following_id = p.user_id
+            AND f.is_approved = TRUE
+      )
+
+      -- BLOCK FILTER: both directions
+      AND NOT EXISTS (
+          SELECT 1 FROM blocks b
+          WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
+             OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
+      )
+
+      -- CURSOR: created_at of last item on previous page
+      AND (p_cursor IS NULL OR p.created_at < p_cursor)
+
+    ORDER BY p.created_at DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+
+-- ############################################################################
+-- 6. CURSOR-BASED PAGINATION — IMPLEMENTATION DETAILS
+-- ############################################################################
+--
+-- ┌──────────────┬──────────────────────┬──────────────────────────────────┐
+-- │ Feed         │ Cursor Type          │ Ordering                         │
+-- ├──────────────┼──────────────────────┼──────────────────────────────────┤
+-- │ Main (ranked)│ (score, id) composite│ score DESC, id DESC              │
+-- │ Friends      │ created_at timestamp │ created_at DESC                  │
+-- │ Archive      │ created_at timestamp │ created_at DESC                  │
+-- └──────────────┴──────────────────────┴──────────────────────────────────┘
+--
+-- WHY NOT OFFSET?
+--   OFFSET re-scans skipped rows. With 1M posts and OFFSET 50000, Postgres
+--   reads and discards 50000 rows. Cursor-based pagination seeks directly
+--   to the continuation point using an index.
+--
+-- MAIN FEED CURSOR MECHANICS:
+--   The client receives a page of results. Each row has (score, id).
+--   To request the next page, the client sends back the score and id of
+--   the LAST row on the current page:
+--
+--     p_cursor_score = last_row.score
+--     p_cursor_id    = last_row.id
+--
+--   The WHERE clause then filters:
+--     WHERE computed_score < p_cursor_score
+--        OR (computed_score = p_cursor_score AND post_id < p_cursor_id)
+--
+--   This gives stable, deterministic ordering even when scores are identical
+--   (tie-broken by UUID comparison, which is arbitrary but consistent).
+--
+-- FRIENDS FEED CURSOR MECHANICS:
+--   The client sends back created_at of the last row:
+--
+--     p_cursor = last_row.created_at
+--
+--   The WHERE clause filters:
+--     WHERE created_at < p_cursor
+--
+--   Since created_at has microsecond precision and posts are rate-limited to
+--   1 per 24h per user, collisions are impossible within the friends feed.
+--
+-- API RESPONSE SHAPE (from the server to the client):
+--
+--   {
+--     "posts": [ ... ],                  -- array of render-ready post objects
+--     "next_cursor": {                   -- null if no more results
+--       "score": 0.363,                  -- Main feed only
+--       "id": "uuid",                    -- Main feed only
+--       "created_at": "2026-02-09T..."   -- Friends/Archive only
+--     },
+--     "has_more": true                   -- posts.length == p_limit
+--   }
+--
+-- FIRST PAGE REQUEST:
+--   Main:    SELECT * FROM get_main_feed(NULL, NULL, 20);
+--   Friends: SELECT * FROM get_friends_feed(NULL, 20);
+--
+-- NEXT PAGE REQUEST:
+--   Main:    SELECT * FROM get_main_feed(0.363, 'last-uuid', 20);
+--   Friends: SELECT * FROM get_friends_feed('2026-02-09T15:30:00Z', 20);
+--
+-- HAS_MORE DETECTION:
+--   If the returned row count == p_limit, there may be more pages.
+--   If returned rows < p_limit, this is the last page.
+
+-- Example: API-layer pseudocode (Edge Function / Lambda)
+--
+--   -- Parse request
+--   cursor_score = request.query.cursor_score   -- nullable
+--   cursor_id    = request.query.cursor_id      -- nullable
+--   limit        = MIN(request.query.limit or 20, 50)  -- cap at 50
+--
+--   -- Set auth context
+--   db.execute("SET LOCAL app.current_user_id = $1", [jwt.sub])
+--
+--   -- Execute
+--   rows = db.execute(
+--       "SELECT * FROM get_main_feed($1, $2, $3)",
+--       [cursor_score, cursor_id, limit]
+--   )
+--
+--   -- Record exposures (fire-and-forget or awaited)
+--   author_ids = DISTINCT(rows.map(r => r.user_id))
+--   db.execute(
+--       "SELECT record_feed_exposures($1)",
+--       [author_ids]
+--   )
+--
+--   -- Build response
+--   last = rows[rows.length - 1]
+--   response = {
+--       posts: rows,
+--       next_cursor: rows.length == limit ? {
+--           score: last.score,
+--           id: last.id
+--       } : null,
+--       has_more: rows.length == limit
+--   }
+
+
+-- ############################################################################
+-- 7. REQUIRED INDEXES — WHAT EACH ONE DOES FOR RANKING
+-- ############################################################################
+
+-- INDEX 1: Primary candidate scan for both feeds
+-- ─────────────────────────────────────────────────
+-- CREATE INDEX idx_posts_active_feed ON posts (created_at DESC)
+--     WHERE is_hidden = FALSE AND expires_at > now();
+--
+-- Used by: candidate_posts CTE (Main), FROM clause (Friends)
+-- What it does: Partial index on only active, visible posts. The planner
+-- uses this to skip all hidden/expired rows without touching them.
+-- The created_at DESC ordering supports the Friends feed ORDER BY directly.
+--
+-- PROBLEM: expires_at > now() is not a constant — this is a "pseudo-partial"
+-- index. Postgres cannot use the WHERE clause of this partial index at plan
+-- time because now() changes. However, it still narrows the index to rows
+-- where is_hidden = FALSE, and the planner applies the expires_at filter
+-- as a recheck. For true optimization at scale, replace with:
+--
+CREATE INDEX idx_posts_active_feed_v2 ON posts (created_at DESC)
+    INCLUDE (user_id, image_url, image_width, image_height, like_count, view_count, expires_at)
+    WHERE is_hidden = FALSE;
+--
+-- This covering index lets the Main and Friends feed queries satisfy the
+-- candidate scan with an index-only scan (no heap fetch) for all columns
+-- needed in the initial filter. The expires_at > now() check becomes a
+-- fast filter on the included column.
+
+
+-- INDEX 2: Ranking multi-column (Main feed scoring)
+-- ─────────────────────────────────────────────────
+-- CREATE INDEX idx_posts_ranking ON posts (created_at DESC, like_count DESC, view_count DESC)
+--     WHERE is_hidden = FALSE AND expires_at > now();
+--
+-- Used by: candidate_posts CTE when the planner chooses this over idx_posts_active_feed.
+-- What it does: Provides like_count and view_count directly from the index
+-- for the scoring formula without heap access.
+
+
+-- INDEX 3: Hourly view aggregates (velocity computation)
+-- ─────────────────────────────────────────────────
+-- PRIMARY KEY (post_id, hour_bucket) on post_view_hourly
+--
+-- Used by: The velocity subquery in scored CTE:
+--     SELECT SUM(view_count) FROM post_view_hourly
+--     WHERE post_id = ? AND hour_bucket >= date_trunc('hour', now()) - '1 hour'
+--
+-- What it does: B-tree on (post_id, hour_bucket) lets Postgres seek directly
+-- to the post's hourly rows and range-scan the last 2 hour buckets.
+-- At most 2 rows read per post (current hour + previous hour).
+
+
+-- INDEX 4: Follow lookup (personalization + Friends filter)
+-- ─────────────────────────────────────────────────
+-- CREATE INDEX idx_follows_follower ON follows (follower_id, is_approved);
+--
+-- Used by:
+--   Main feed: viewer_follows EXISTS subquery in scored CTE
+--   Friends feed: EXISTS filter in WHERE clause
+--
+-- What it does: For a given viewer (follower_id), seeks directly to their
+-- approved follows. The EXISTS subquery terminates on first match.
+
+
+-- INDEX 5: Follow reverse lookup (used if checking "does author follow viewer")
+-- ─────────────────────────────────────────────────
+-- CREATE INDEX idx_follows_following ON follows (following_id, is_approved);
+--
+-- Not directly used in feed ranking, but supports the profile relationship
+-- checks and the follow approval flow.
+
+
+-- INDEX 6: Block check (both feeds)
+-- ─────────────────────────────────────────────────
+-- PRIMARY KEY (blocker_id, blocked_id) on blocks
+-- CREATE INDEX idx_blocks_blocked ON blocks (blocked_id);
+--
+-- Used by: NOT EXISTS subquery in both feeds:
+--     NOT EXISTS (SELECT 1 FROM blocks WHERE
+--         (blocker_id = post.user_id AND blocked_id = viewer)
+--      OR (blocker_id = viewer AND blocked_id = post.user_id))
+--
+-- What it does: The PK covers (blocker_id, blocked_id) for the first OR branch.
+-- idx_blocks_blocked covers (blocked_id) for the second OR branch when the
+-- planner restructures the OR into a BitmapOr.
+-- For most users with 0 blocks, both lookups return immediately.
+
+
+-- INDEX 7: Likes lookup (is_liked per post)
+-- ─────────────────────────────────────────────────
+-- PRIMARY KEY (user_id, post_id) on likes
+--
+-- Used by: The EXISTS subquery in the final SELECT:
+--     EXISTS (SELECT 1 FROM likes WHERE post_id = ? AND user_id = viewer)
+--
+-- What it does: Direct PK lookup. O(1) per post. For a page of 20 posts,
+-- this is 20 PK lookups — not a join, not N+1 (it's N scalar subqueries
+-- inside a single SQL statement, which the planner can batch).
+
+
+-- INDEX 8: Tags lookup (per post)
+-- ─────────────────────────────────────────────────
+-- CREATE INDEX idx_tags_post_id ON tags (post_id);
+--
+-- Used by: The jsonb_agg subquery in the final SELECT:
+--     SELECT jsonb_agg(...) FROM tags WHERE post_id = ?
+--
+-- What it does: Seeks to the post's tags. Max 3 tags per post (enforced by
+-- trigger), so at most 3 rows read per post.
+
+
+-- INDEX 9: Exposure cap lookup
+-- ─────────────────────────────────────────────────
+-- PRIMARY KEY (viewer_id, author_id, feed_date) on feed_exposures
+--
+-- Used by: The exposure subquery in ranked CTE:
+--     SELECT exposure_count FROM feed_exposures
+--     WHERE viewer_id = ? AND author_id = ? AND feed_date = CURRENT_DATE
+--
+-- What it does: Direct PK lookup per candidate post. Returns 0 or 1 row.
+
+
+-- INDEX 10: User join (author data)
+-- ─────────────────────────────────────────────────
+-- PRIMARY KEY (id) on users
+-- CREATE INDEX idx_users_visibility ON users (visibility) WHERE visibility = 'public';
+--
+-- Used by: JOIN users u ON u.id = p.user_id in candidate_posts CTE
+-- The visibility partial index helps when the planner decides to filter
+-- public users first and then join to posts. At scale with mostly public
+-- users, the PK join is more likely.
+
+
+-- ############################################################################
+-- QUERY PLAN ANNOTATIONS (expected for 1M posts, 500K users)
+-- ############################################################################
+--
+-- Main feed get_main_feed(NULL, NULL, 20):
+--
+--   1. candidate_posts CTE:
+--      Index Scan using idx_posts_active_feed_v2 on posts
+--        Filter: expires_at > now()
+--        Rows: ~3-day window worth of posts (at 500K users × 1 post/day = ~1.5M,
+--               but only public non-hidden ≈ ~1M active)
+--      Nested Loop → users PK lookup for each post
+--        Nested Loop → blocks NOT EXISTS (anti-join, usually 0 blocks)
+--
+--   2. batch_stats CTE:
+--      Aggregate over candidate_posts
+--        → SubPlan: post_view_hourly PK scan per candidate
+--        This is the most expensive step. At scale, materialize candidates
+--        and use a lateral join instead.
+--
+--   3. scored CTE:
+--      Seq scan on candidate_posts (already materialized)
+--        → SubPlan: post_view_hourly (same as batch_stats)
+--        → SubPlan: follows index scan
+--
+--   4. ranked CTE:
+--      Computation only (no I/O beyond exposure lookup)
+--        → SubPlan: feed_exposures PK scan
+--
+--   5. filtered CTE:
+--      Sort on computed_score DESC, post_id DESC
+--      Limit 20
+--
+--   6. Final SELECT:
+--      20 rows × 3 subplans each (likes PK, tags index, output)
+--
+-- Total index lookups per page ≈:
+--   candidates: 1 index scan
+--   velocity: ~N × 1 PK range scan (2 rows each)
+--   follows: ~N × 1 index scan
+--   blocks: ~N × 2 index scans (usually miss immediately)
+--   exposures: ~N × 1 PK scan
+--   likes: ~20 × 1 PK scan
+--   tags: ~20 × 1 index scan
+--
+-- Where N = number of candidates in the 3-day window.
+-- At scale (N > 100K), pre-filter candidates with a materialized view
+-- or background scoring job. The function structure stays the same.
