@@ -161,7 +161,7 @@ struct ProfileView: View {
                     }
 
                     // Empty slots
-                    ForEach(0 ..< (3 - viewModel.signaturePosts.count), id: \.self) { _ in
+                    ForEach(0 ..< max(0, 3 - viewModel.signaturePosts.count), id: \.self) { _ in
                         emptyTile(size: signatureTileSize)
                     }
                 }
@@ -212,7 +212,7 @@ struct ProfileView: View {
                         liveTile(post)
                     }
 
-                    ForEach(0 ..< (3 - viewModel.livePosts.count), id: \.self) { _ in
+                    ForEach(0 ..< max(0, 3 - viewModel.livePosts.count), id: \.self) { _ in
                         emptyTile(size: liveTileSize)
                     }
                 }

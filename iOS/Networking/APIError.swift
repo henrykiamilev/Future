@@ -65,6 +65,24 @@ enum APIError: LocalizedError, Sendable {
 }
 
 struct APIErrorResponse: Decodable {
-    let error: String
+    // Supabase GoTrue format: {"error": "...", "error_description": "..."}
+    let error: String?
+    let errorDescription: String?  // decoded from "error_description" via convertFromSnakeCase
+
+    // Supabase GoTrue v2 format: {"error_code": "...", "msg": "..."}
+    let errorCode: String?         // decoded from "error_code" via convertFromSnakeCase
+    let msg: String?
+
+    // Supabase PostgREST format: {"message": "...", "code": "..."}
     let message: String?
+
+    /// Best available user-facing message across all Supabase error formats.
+    var bestMessage: String? {
+        errorDescription ?? msg ?? message
+    }
+
+    /// Best available error code across all formats.
+    var bestErrorCode: String? {
+        errorCode ?? error
+    }
 }

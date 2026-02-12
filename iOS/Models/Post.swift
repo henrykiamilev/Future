@@ -8,16 +8,15 @@ struct FeedPost: Codable, Identifiable, Equatable, Sendable {
     let imageURL: String
     let imageWidth: Int
     let imageHeight: Int
-    let likeCount: Int
+    var likeCount: Int
     let viewCount: Int
     var isLiked: Bool
     let createdAt: Date
     let score: Double?
     let tags: [Tag]
 
-    static func == (lhs: FeedPost, rhs: FeedPost) -> Bool {
-        lhs.id == rhs.id
-    }
+    // Equatable auto-synthesized — compares all properties so SwiftUI
+    // re-renders cells when isLiked or likeCount changes.
 
     enum CodingKeys: String, CodingKey {
         case id

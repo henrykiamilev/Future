@@ -117,21 +117,7 @@ final class FeedViewModel: ObservableObject {
             // Re-lookup by ID after the async call — the index may have shifted
             if let idx = posts.firstIndex(where: { $0.id == postID }) {
                 posts[idx].isLiked = !wasLiked
-                posts[idx] = FeedPost(
-                    id: posts[idx].id,
-                    userID: posts[idx].userID,
-                    username: posts[idx].username,
-                    authorPhoto: posts[idx].authorPhoto,
-                    imageURL: posts[idx].imageURL,
-                    imageWidth: posts[idx].imageWidth,
-                    imageHeight: posts[idx].imageHeight,
-                    likeCount: response.newLikeCount,
-                    viewCount: posts[idx].viewCount,
-                    isLiked: !wasLiked,
-                    createdAt: posts[idx].createdAt,
-                    score: posts[idx].score,
-                    tags: posts[idx].tags
-                )
+                posts[idx].likeCount = response.newLikeCount
             }
         } catch {
             // Revert optimistic update — re-lookup by ID, not stale index

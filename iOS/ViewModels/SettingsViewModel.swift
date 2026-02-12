@@ -11,7 +11,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var snapchatHandle: String = ""
     @Published var visibility: User.AccountVisibility = .public
     @Published private(set) var isSaving = false
-    @Published private(set) var error: String?
+    @Published var error: String?
     @Published var showDeleteConfirmation = false
     @Published private(set) var didSignOut = false
 
@@ -65,6 +65,23 @@ final class SettingsViewModel: ObservableObject {
         do {
             try await profileService.updateVisibility(newVisibility)
             visibility = newVisibility
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isSaving = false
+    }
+
+    // MARK: - Delete Account
+
+    func deleteAccount() async {
+        isSaving = true
+        error = nil
+
+        do {
+            try await profileService.deleteAccount()
+            authService.signOut()
+            didSignOut = true
         } catch {
             self.error = error.localizedDescription
         }

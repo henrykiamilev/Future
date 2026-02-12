@@ -44,8 +44,11 @@ struct SettingsView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: .constant(viewModel.error != nil)) {
-                Button("OK") { }
+            .alert("Error", isPresented: Binding(
+                get: { viewModel.error != nil },
+                set: { if !$0 { viewModel.error = nil } }
+            )) {
+                Button("OK") { viewModel.error = nil }
             } message: {
                 Text(viewModel.error ?? "")
             }
@@ -54,7 +57,9 @@ struct SettingsView: View {
                 isPresented: $viewModel.showDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Delete Account", role: .destructive) { }
+                Button("Delete Account", role: .destructive) {
+                    Task { await viewModel.deleteAccount() }
+                }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action is permanent and cannot be undone.")

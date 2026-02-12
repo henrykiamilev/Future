@@ -188,7 +188,8 @@ final class APIClient: APIClientProtocol, Sendable {
 
     private func mapError(statusCode: Int, data: Data) -> APIError {
         let decoded = try? decoder.decode(APIErrorResponse.self, from: data)
-        let errorCode = decoded?.error ?? ""
+        let errorCode = decoded?.bestErrorCode ?? ""
+        let message = decoded?.bestMessage
 
         switch statusCode {
         case 401:
@@ -200,9 +201,9 @@ final class APIClient: APIClientProtocol, Sendable {
         case 429:
             return .rateLimited(retryAfter: nil)
         case 400...499:
-            return mapDomainError(errorCode, message: decoded?.message)
+            return mapDomainError(errorCode, message: message)
         default:
-            return .serverError(statusCode: statusCode, message: decoded?.message)
+            return .serverError(statusCode: statusCode, message: message)
         }
     }
 

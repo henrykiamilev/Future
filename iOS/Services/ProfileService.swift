@@ -7,6 +7,7 @@ protocol ProfileServiceProtocol: Sendable {
     func follow(userID: UUID) async throws
     func unfollow(userID: UUID) async throws
     func updateVisibility(_ visibility: User.AccountVisibility) async throws
+    func deleteAccount() async throws
 }
 
 struct ArchivePage: Decodable, Sendable {
@@ -45,5 +46,9 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func updateVisibility(_ visibility: User.AccountVisibility) async throws {
         try await client.requestVoid(.updateVisibility(visibility))
+    }
+
+    func deleteAccount() async throws {
+        try await client.requestVoid(.deleteAccount)
     }
 }
