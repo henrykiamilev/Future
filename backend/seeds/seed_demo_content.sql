@@ -26,10 +26,10 @@ BEGIN
 -- ========================
 -- STEP 1: Disable triggers temporarily
 -- ========================
-ALTER TABLE posts DISABLE TRIGGER ALL;
-ALTER TABLE users DISABLE TRIGGER ALL;
-ALTER TABLE likes DISABLE TRIGGER ALL;
-ALTER TABLE follows DISABLE TRIGGER ALL;
+ALTER TABLE posts DISABLE TRIGGER USER;
+ALTER TABLE users DISABLE TRIGGER USER;
+ALTER TABLE likes DISABLE TRIGGER USER;
+ALTER TABLE follows DISABLE TRIGGER USER;
 
 -- ========================
 -- STEP 2: Insert 6 demo users
@@ -244,10 +244,10 @@ UPDATE users SET following_count = (
 -- ========================
 -- STEP 7: Re-enable triggers
 -- ========================
-ALTER TABLE posts ENABLE TRIGGER ALL;
-ALTER TABLE users ENABLE TRIGGER ALL;
-ALTER TABLE likes ENABLE TRIGGER ALL;
-ALTER TABLE follows ENABLE TRIGGER ALL;
+ALTER TABLE posts ENABLE TRIGGER USER;
+ALTER TABLE users ENABLE TRIGGER USER;
+ALTER TABLE likes ENABLE TRIGGER USER;
+ALTER TABLE follows ENABLE TRIGGER USER;
 
 
 -- ========================
