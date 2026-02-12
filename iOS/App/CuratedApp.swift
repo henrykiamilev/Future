@@ -19,8 +19,8 @@ struct CuratedApp: App {
 enum SupabaseConfig {
     // These should be loaded from a plist or environment in production.
     // The anon key is safe to embed client-side — RLS protects data.
-    static let projectURL = URL(string: "https://YOUR_PROJECT.supabase.co")!
-    static let anonKey = "YOUR_SUPABASE_ANON_KEY"
+    static let projectURL = URL(string: "https://rylyzntjznnwmysszbzq.supabase.co")!
+    static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5bHl6bnRqem5ud215c3N6YnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NzIyNjIsImV4cCI6MjA4NjM0ODI2Mn0.IX-4kN7OAdrid-Frg-E3iV7wZzZD3hWhWq7zfEJ2Xn8"
 }
 
 // MARK: - App-Wide Dependency Container
