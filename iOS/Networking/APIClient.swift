@@ -63,25 +63,38 @@ final class APIClient: APIClientProtocol, Sendable {
 
     // MARK: - Internal
 
+    private let maxRetries = 3
+
     private func execute(_ endpoint: APIEndpoint) async throws -> (Data, HTTPURLResponse) {
         let urlRequest = try buildRequest(endpoint)
 
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await session.data(for: urlRequest)
-        } catch {
-            throw APIError.networkFailure(underlying: error.localizedDescription)
+        for attempt in 0..<maxRetries {
+            let (data, response): (Data, URLResponse)
+            do {
+                (data, response) = try await session.data(for: urlRequest)
+            } catch {
+                throw APIError.networkFailure(underlying: error.localizedDescription)
+            }
+
+            guard let http = response as? HTTPURLResponse else {
+                throw APIError.unknown(statusCode: 0)
+            }
+
+            if (200...299).contains(http.statusCode) {
+                return (data, http)
+            }
+
+            // Retry on 429 with exponential backoff
+            if http.statusCode == 429, attempt < maxRetries - 1 {
+                let delay = UInt64(pow(2.0, Double(attempt + 1))) * 1_000_000_000
+                try? await Task.sleep(nanoseconds: delay)
+                continue
+            }
+
+            throw mapError(statusCode: http.statusCode, data: data)
         }
 
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.unknown(statusCode: 0)
-        }
-
-        if (200...299).contains(http.statusCode) {
-            return (data, http)
-        }
-
-        throw mapError(statusCode: http.statusCode, data: data)
+        throw APIError.rateLimited(retryAfter: nil)
     }
 
     private func buildRequest(_ endpoint: APIEndpoint) throws -> URLRequest {

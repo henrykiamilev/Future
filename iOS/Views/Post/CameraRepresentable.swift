@@ -225,9 +225,10 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
             captureSession.addOutput(photoOutput)
         }
 
-        // Configure output for best quality
-        photoOutput.isHighResolutionCaptureEnabled = true
-        photoOutput.maxPhotoQualityPrioritization = .quality
+        // Configure output for max resolution (iOS 16+ API)
+        if let maxDimensions = currentInput?.device.activeFormat.supportedMaxPhotoDimensions.last {
+            photoOutput.maxPhotoDimensions = maxDimensions
+        }
     }
 
     // MARK: - Photo Settings
@@ -246,8 +247,8 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
             settings.flashMode = flashMode
         }
 
-        settings.isHighResolutionPhotoEnabled = true
-        settings.photoQualityPrioritization = .quality
+        // Use max resolution available (iOS 16+ API)
+        settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
 
         return settings
     }
