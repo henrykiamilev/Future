@@ -31,19 +31,19 @@ final class ProfileViewModel: ObservableObject {
 
     // MARK: - Convenience Accessors
 
-    var username: String { profile?.user.username ?? "" }
-    var displayName: String? { profile?.user.displayName }
-    var profilePhotoURL: String? { profile?.user.profilePhotoURL }
-    var totalLikes: Int { profile?.user.totalLikes ?? 0 }
-    var followerCount: Int { profile?.user.followerCount ?? 0 }
-    var followingCount: Int { profile?.user.followingCount ?? 0 }
-    var isOwnProfile: Bool { profile?.user.isOwnProfile ?? false }
-    var isFollowing: Bool { profile?.user.isFollowing ?? false }
-    var followIsPending: Bool { profile?.user.followIsPending ?? false }
+    var username: String { profile?.username ?? "" }
+    var displayName: String? { profile?.displayName }
+    var profilePhotoURL: String? { profile?.profilePhotoURL }
+    var totalLikes: Int { profile?.totalLikes ?? 0 }
+    var followerCount: Int { profile?.followerCount ?? 0 }
+    var followingCount: Int { profile?.followingCount ?? 0 }
+    var isOwnProfile: Bool { profile?.isOwnProfile ?? false }
+    var isFollowing: Bool { profile?.isFollowing ?? false }
+    var followIsPending: Bool { profile?.followIsPending ?? false }
     var signaturePosts: [PostSummary] { profile?.signaturePosts ?? [] }
     var livePosts: [PostSummary] { profile?.livePosts ?? [] }
-    var instagramHandle: String? { profile?.user.instagramHandle }
-    var snapchatHandle: String? { profile?.user.snapchatHandle }
+    var instagramHandle: String? { profile?.instagramHandle }
+    var snapchatHandle: String? { profile?.snapchatHandle }
 
     // MARK: - Load Profile
 
@@ -66,7 +66,7 @@ final class ProfileViewModel: ObservableObject {
         guard let profile else { return }
 
         do {
-            if profile.user.isFollowing {
+            if profile.isFollowing {
                 try await profileService.unfollow(userID: userID)
             } else {
                 try await profileService.follow(userID: userID)

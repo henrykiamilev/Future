@@ -14,6 +14,9 @@ struct CuratedApp: App {
                 Group {
                     if showOnboarding {
                         OnboardingView {
+                            Task {
+                                try? await appState.profileService.completeOnboarding()
+                            }
                             UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
                             withAnimation { showOnboarding = false }
                         }
@@ -36,8 +39,28 @@ struct CuratedApp: App {
             }
             .preferredColorScheme(.light)
             .onChange(of: appState.isAuthenticated) { _, isAuth in
-                if isAuth && !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
-                    showOnboarding = true
+                if isAuth {
+                    // Check local cache first for instant UI
+                    guard !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") else { return }
+                    // Verify against server to prevent infinite loop and handle reinstalls
+                    Task {
+                        guard let userID = appState.authService.currentUserID else {
+                            showOnboarding = true
+                            return
+                        }
+                        do {
+                            let profile = try await appState.profileService.fetchProfile(userID: userID)
+                            if profile.onboardingCompletedAt == nil {
+                                showOnboarding = true
+                            } else {
+                                // Sync local cache from server (handles reinstall / new device)
+                                UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+                            }
+                        } catch {
+                            // New user or network issue — show onboarding to be safe
+                            showOnboarding = true
+                        }
+                    }
                 }
             }
         }

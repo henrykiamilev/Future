@@ -22,6 +22,8 @@ RETURNS TABLE (
     is_follower BOOLEAN,
     follow_is_pending BOOLEAN,
     is_own_profile BOOLEAN,
+    comments_enabled BOOLEAN,
+    onboarding_completed_at TIMESTAMPTZ,
     signature_posts JSONB,
     live_posts JSONB
 ) AS $$
@@ -61,6 +63,8 @@ BEGIN
               AND f.is_approved = FALSE
         ) AS follow_is_pending,
         (u.id = v_viewer_id) AS is_own_profile,
+        u.comments_enabled,
+        u.onboarding_completed_at,
         -- Signature posts (max 3)
         COALESCE(
             (SELECT jsonb_agg(sig ORDER BY sig.created_at DESC)

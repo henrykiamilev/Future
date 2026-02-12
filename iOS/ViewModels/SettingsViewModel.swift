@@ -38,13 +38,13 @@ final class SettingsViewModel: ObservableObject {
     // MARK: - Load from Profile
 
     func loadFrom(profile: UserProfile) {
-        displayName = profile.user.displayName ?? ""
-        bio = profile.user.bio ?? ""
-        instagramHandle = profile.user.instagramHandle ?? ""
-        snapchatHandle = profile.user.snapchatHandle ?? ""
-        visibility = profile.user.visibility
-        commentsEnabled = profile.user.commentsEnabled
-        profilePhotoURL = profile.user.profilePhotoURL
+        displayName = profile.displayName ?? ""
+        bio = profile.bio ?? ""
+        instagramHandle = profile.instagramHandle ?? ""
+        snapchatHandle = profile.snapchatHandle ?? ""
+        visibility = profile.visibility
+        commentsEnabled = profile.commentsEnabled
+        profilePhotoURL = profile.profilePhotoURL
     }
 
     // MARK: - Save Profile

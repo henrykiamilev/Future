@@ -12,6 +12,7 @@ protocol ProfileServiceProtocol: Sendable {
     func getFollowers(userID: UUID) async throws -> [UserSummary]
     func getFollowing(userID: UUID) async throws -> [UserSummary]
     func deleteAccount() async throws
+    func completeOnboarding() async throws
 }
 
 struct ArchivePage: Decodable, Sendable {
@@ -29,7 +30,12 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
     }
 
     func fetchProfile(userID: UUID) async throws -> UserProfile {
-        try await client.request(.profile(userID: userID))
+        // PostgREST returns TABLE results as a JSON array — take first element
+        let results: [UserProfile] = try await client.request(.profile(userID: userID))
+        guard let profile = results.first else {
+            throw APIError.notFound
+        }
+        return profile
     }
 
     func fetchArchive(cursor: Date? = nil, limit: Int = 20) async throws -> ArchivePage {
@@ -70,5 +76,9 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func deleteAccount() async throws {
         try await client.requestVoid(.deleteAccount)
+    }
+
+    func completeOnboarding() async throws {
+        try await client.requestVoid(.completeOnboarding)
     }
 }

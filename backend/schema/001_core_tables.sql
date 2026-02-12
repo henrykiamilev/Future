@@ -33,6 +33,7 @@ CREATE TABLE users (
     following_count BIGINT NOT NULL DEFAULT 0,       -- denormalized
     last_post_at    TIMESTAMPTZ,                     -- for 24-hour rule enforcement
     is_banned       BOOLEAN NOT NULL DEFAULT FALSE,
+    onboarding_completed_at TIMESTAMPTZ,             -- NULL until onboarding finished
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

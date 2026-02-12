@@ -33,11 +33,22 @@ CREATE POLICY users_select_public ON users
         )
     );
 
+-- Users can insert their own row (auth trigger is SECURITY DEFINER so bypasses
+-- RLS, but this policy exists as defense-in-depth for any direct insert path)
+CREATE POLICY users_insert_own ON users
+    FOR INSERT
+    WITH CHECK (id = auth_uid());
+
 -- Users can only update their own profile
 CREATE POLICY users_update_own ON users
     FOR UPDATE
     USING (id = auth_uid())
     WITH CHECK (id = auth_uid());
+
+-- Users can delete their own account
+CREATE POLICY users_delete_own ON users
+    FOR DELETE
+    USING (id = auth_uid());
 
 -- ============================================================================
 -- POSTS

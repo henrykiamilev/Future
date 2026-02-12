@@ -54,21 +54,8 @@ final class AuthService: AuthServiceProtocol, Sendable {
         )
         tokenProvider.store(token: response.accessToken)
         tokenProvider.storeRefreshToken(response.refreshToken)
-
-        // Create the user row in our users table (Supabase Auth creates
-        // auth.users, but we need a row in public.users for our schema).
-        // This is typically handled by a Supabase database trigger on
-        // auth.users INSERT, but we also call it explicitly as a fallback.
-        try? await client.requestVoid(
-            APIEndpoint(
-                path: "/rest/v1/users",
-                method: .POST,
-                body: CreateUserRow(
-                    id: response.user.id,
-                    username: username
-                )
-            )
-        )
+        // public.users row is created atomically by the handle_new_user
+        // database trigger on auth.users INSERT. No client-side insert needed.
     }
 
     func signOut() {
@@ -127,7 +114,3 @@ private struct SupabaseUser: Decodable, Sendable {
     let email: String?
 }
 
-private struct CreateUserRow: Encodable, Sendable {
-    let id: UUID
-    let username: String
-}

@@ -123,7 +123,7 @@ struct SettingsView: View {
                 }
             }
 
-            Text("@\(profile.user.username)")
+            Text("@\(profile.username)")
                 .font(Theme.captionFont)
                 .foregroundColor(Theme.textTertiary)
         }

@@ -25,7 +25,7 @@ BEGIN
     FROM public.follows f
     JOIN public.users u ON u.id = f.follower_id
     WHERE f.following_id = p_user_id
-      AND f.status = 'accepted'
+      AND f.is_approved = TRUE
     ORDER BY f.created_at DESC
     LIMIT p_limit;
 END;
@@ -54,7 +54,7 @@ BEGIN
     FROM public.follows f
     JOIN public.users u ON u.id = f.following_id
     WHERE f.follower_id = p_user_id
-      AND f.status = 'accepted'
+      AND f.is_approved = TRUE
     ORDER BY f.created_at DESC
     LIMIT p_limit;
 END;

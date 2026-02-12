@@ -202,7 +202,7 @@ extension APIEndpoint {
     }
 
     static var deleteAccount: APIEndpoint {
-        APIEndpoint(path: "/rest/v1/users", method: .DELETE)
+        APIEndpoint(path: "/rest/v1/rpc/delete_own_account", method: .POST)
     }
 }
 
@@ -318,6 +318,18 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Onboarding Endpoints
+
+extension APIEndpoint {
+    static var completeOnboarding: APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            body: OnboardingComplete(onboardingCompletedAt: Date())
+        )
+    }
+}
+
 // MARK: - Supabase RPC Request Bodies
 
 private struct RPCMainFeed: Encodable, Sendable {
@@ -428,4 +440,8 @@ private struct ProfilePhotoUpdate: Encodable, Sendable {
 private struct RPCPushToken: Encodable, Sendable {
     let p_token: String
     let p_platform: String
+}
+
+private struct OnboardingComplete: Encodable, Sendable {
+    let onboardingCompletedAt: Date
 }
