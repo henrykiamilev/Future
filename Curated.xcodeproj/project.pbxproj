@@ -40,6 +40,17 @@
 		A1000000000000000000001F /* SocialLinkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000001F /* SocialLinkButton.swift */; };
 		A10000000000000000000020 /* SocialLinksRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* SocialLinksRow.swift */; };
 		A10000000000000000000021 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* Assets.xcassets */; };
+		A10000000000000000000022 /* Comment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* Comment.swift */; };
+		A10000000000000000000023 /* CommentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* CommentService.swift */; };
+		A10000000000000000000024 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* NotificationService.swift */; };
+		A10000000000000000000025 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SearchService.swift */; };
+		A10000000000000000000026 /* FollowListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* FollowListViewModel.swift */; };
+		A10000000000000000000027 /* PostDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* PostDetailViewModel.swift */; };
+		A10000000000000000000028 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000002A /* SearchViewModel.swift */; };
+		A10000000000000000000029 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000002B /* OnboardingView.swift */; };
+		A1000000000000000000002A /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000002C /* PostDetailView.swift */; };
+		A1000000000000000000002B /* FollowListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000002D /* FollowListView.swift */; };
+		A1000000000000000000002C /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000002E /* SearchView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,6 +89,17 @@
 		B10000000000000000000021 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10000000000000000000022 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000023 /* Curated.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Curated.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000024 /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
+		B10000000000000000000025 /* CommentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentService.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		B10000000000000000000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
+		B10000000000000000000028 /* FollowListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowListViewModel.swift; sourceTree = "<group>"; };
+		B10000000000000000000029 /* PostDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailViewModel.swift; sourceTree = "<group>"; };
+		B1000000000000000000002A /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
+		B1000000000000000000002B /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B1000000000000000000002C /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
+		B1000000000000000000002D /* FollowListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowListView.swift; sourceTree = "<group>"; };
+		B1000000000000000000002E /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +162,7 @@
 				B10000000000000000000004 /* Post.swift */,
 				B10000000000000000000005 /* Tag.swift */,
 				B10000000000000000000006 /* FeedPage.swift */,
+				B10000000000000000000024 /* Comment.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -162,6 +185,9 @@
 				B1000000000000000000000C /* PostService.swift */,
 				B1000000000000000000000D /* ProfileService.swift */,
 				B1000000000000000000000E /* ImageUploadService.swift */,
+				B10000000000000000000025 /* CommentService.swift */,
+				B10000000000000000000026 /* NotificationService.swift */,
+				B10000000000000000000027 /* SearchService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -173,6 +199,9 @@
 				B10000000000000000000010 /* PostViewModel.swift */,
 				B10000000000000000000011 /* ProfileViewModel.swift */,
 				B10000000000000000000012 /* SettingsViewModel.swift */,
+				B10000000000000000000028 /* FollowListViewModel.swift */,
+				B10000000000000000000029 /* PostDetailViewModel.swift */,
+				B1000000000000000000002A /* SearchViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -187,6 +216,8 @@
 				D10000000000000000000010 /* Profile */,
 				D10000000000000000000011 /* Settings */,
 				D10000000000000000000012 /* Splash */,
+				D10000000000000000000013 /* Onboarding */,
+				D10000000000000000000014 /* Search */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -221,6 +252,7 @@
 			children = (
 				B10000000000000000000017 /* PostCameraView.swift */,
 				B10000000000000000000018 /* CameraRepresentable.swift */,
+				B1000000000000000000002C /* PostDetailView.swift */,
 			);
 			path = Post;
 			sourceTree = "<group>";
@@ -248,6 +280,7 @@
 			children = (
 				B10000000000000000000019 /* ProfileView.swift */,
 				B1000000000000000000001A /* ArchiveView.swift */,
+				B1000000000000000000002D /* FollowListView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -266,6 +299,22 @@
 				B1000000000000000000001C /* SplashScreenView.swift */,
 			);
 			path = Splash;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000013 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000002B /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000014 /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				B1000000000000000000002E /* SearchView.swift */,
+			);
+			path = Search;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -369,6 +418,17 @@
 				A1000000000000000000001E /* ImageCompressor.swift in Sources */,
 				A1000000000000000000001F /* SocialLinkButton.swift in Sources */,
 				A10000000000000000000020 /* SocialLinksRow.swift in Sources */,
+				A10000000000000000000022 /* Comment.swift in Sources */,
+				A10000000000000000000023 /* CommentService.swift in Sources */,
+				A10000000000000000000024 /* NotificationService.swift in Sources */,
+				A10000000000000000000025 /* SearchService.swift in Sources */,
+				A10000000000000000000026 /* FollowListViewModel.swift in Sources */,
+				A10000000000000000000027 /* PostDetailViewModel.swift in Sources */,
+				A10000000000000000000028 /* SearchViewModel.swift in Sources */,
+				A10000000000000000000029 /* OnboardingView.swift in Sources */,
+				A1000000000000000000002A /* PostDetailView.swift in Sources */,
+				A1000000000000000000002B /* FollowListView.swift in Sources */,
+				A1000000000000000000002C /* SearchView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
