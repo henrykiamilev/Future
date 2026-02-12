@@ -62,8 +62,8 @@ struct SettingsView: View {
             .onAppear {
                 viewModel.loadFrom(profile: profile)
             }
-            .onChange(of: viewModel.didSignOut) { didSignOut in
-                if didSignOut { dismiss() }
+            .onChange(of: viewModel.didSignOut) { _, newValue in
+                if newValue { dismiss() }
             }
         }
     }
