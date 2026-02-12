@@ -8,6 +8,7 @@ final class SearchViewModel: ObservableObject {
     @Published private(set) var results: [UserSummary] = []
     @Published private(set) var isSearching = false
     @Published private(set) var hasSearched = false
+    @Published private(set) var error: String?
 
     private let searchService: SearchServiceProtocol
     private var debounceTask: Task<Void, Never>?
@@ -36,10 +37,12 @@ final class SearchViewModel: ObservableObject {
 
     func search(_ text: String) async {
         isSearching = true
+        error = nil
         do {
             results = try await searchService.searchUsers(query: text, limit: 20)
         } catch {
             results = []
+            self.error = error.localizedDescription
         }
         hasSearched = true
         isSearching = false

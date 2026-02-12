@@ -39,7 +39,9 @@ struct SettingsView: View {
                         Button("Save") {
                             Task {
                                 await viewModel.saveProfile()
-                                dismiss()
+                                if viewModel.error == nil {
+                                    dismiss()
+                                }
                             }
                         }
                         .font(Theme.headlineFont)

@@ -1,4 +1,6 @@
 import SwiftUI
+import AuthenticationServices
+import CryptoKit
 
 struct AuthView: View {
 
@@ -9,6 +11,7 @@ struct AuthView: View {
     @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var currentNonce: String?
 
     enum AuthMode {
         case signIn, signUp
@@ -96,6 +99,35 @@ struct AuthView: View {
                     .disabled(!isFormValid || isLoading)
                     .padding(.horizontal, Theme.spacingXL)
 
+                    // Divider
+                    HStack {
+                        Rectangle()
+                            .fill(Theme.separator)
+                            .frame(height: 1)
+                        Text("or")
+                            .font(Theme.captionFont)
+                            .foregroundColor(Theme.textTertiary)
+                        Rectangle()
+                            .fill(Theme.separator)
+                            .frame(height: 1)
+                    }
+                    .padding(.horizontal, Theme.spacingXL)
+
+                    // Apple Sign In
+                    SignInWithAppleButton(.signIn) { request in
+                        let nonce = randomNonceString()
+                        currentNonce = nonce
+                        request.requestedScopes = [.email, .fullName]
+                        request.nonce = sha256(nonce)
+                    } onCompletion: { result in
+                        handleAppleSignIn(result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 50)
+                    .cornerRadius(Theme.radiusM)
+                    .padding(.horizontal, Theme.spacingXL)
+                    .disabled(isLoading)
+
                     // Toggle mode
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -148,5 +180,57 @@ struct AuthView: View {
             }
             isLoading = false
         }
+    }
+
+    // MARK: - Apple Sign In
+
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let appleCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let identityTokenData = appleCredential.identityToken,
+                  let identityToken = String(data: identityTokenData, encoding: .utf8),
+                  let nonce = currentNonce else {
+                errorMessage = "Unable to get Apple credentials."
+                return
+            }
+
+            isLoading = true
+            errorMessage = nil
+
+            Task {
+                do {
+                    try await appState.authService.signInWithApple(
+                        identityToken: identityToken,
+                        nonce: nonce
+                    )
+                    appState.isAuthenticated = true
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+                isLoading = false
+            }
+
+        case .failure(let error):
+            // Don't show error if user cancelled
+            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        precondition(errorCode == errSecSuccess)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashed = SHA256.hash(data: inputData)
+        return hashed.compactMap { String(format: "%02x", $0) }.joined()
     }
 }

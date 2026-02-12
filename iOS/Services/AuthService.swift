@@ -5,6 +5,7 @@ protocol AuthServiceProtocol: Sendable {
     var currentUserID: UUID? { get }
     func signIn(email: String, password: String) async throws
     func signUp(username: String, email: String, password: String) async throws
+    func signInWithApple(identityToken: String, nonce: String) async throws
     func signOut()
 }
 
@@ -58,6 +59,20 @@ final class AuthService: AuthServiceProtocol, Sendable {
         // database trigger on auth.users INSERT. No client-side insert needed.
     }
 
+    func signInWithApple(identityToken: String, nonce: String) async throws {
+        // Supabase Auth: POST /auth/v1/token?grant_type=id_token
+        let response: SupabaseAuthResponse = try await client.request(
+            APIEndpoint(
+                path: "/auth/v1/token",
+                method: .POST,
+                queryItems: [.init(name: "grant_type", value: "id_token")],
+                body: SupabaseAppleSignIn(provider: "apple", idToken: identityToken, nonce: nonce)
+            )
+        )
+        tokenProvider.store(token: response.accessToken)
+        tokenProvider.storeRefreshToken(response.refreshToken)
+    }
+
     func signOut() {
         tokenProvider.clear()
         NotificationCenter.default.post(name: .authSessionExpired, object: nil)
@@ -99,6 +114,12 @@ private struct SupabaseSignUp: Encodable, Sendable {
 
 private struct UserMetadata: Encodable, Sendable {
     let username: String
+}
+
+private struct SupabaseAppleSignIn: Encodable, Sendable {
+    let provider: String
+    let idToken: String
+    let nonce: String
 }
 
 private struct SupabaseAuthResponse: Decodable, Sendable {

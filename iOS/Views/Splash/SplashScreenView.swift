@@ -74,7 +74,7 @@ private class PlayerUIView: UIView {
     init(player: AVPlayer) {
         super.init(frame: .zero)
         playerLayer.player = player
-        playerLayer.videoGravity = .resizeAspectFill
+        playerLayer.videoGravity = .resizeAspect
         layer.addSublayer(playerLayer)
     }
 

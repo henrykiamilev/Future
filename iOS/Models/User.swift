@@ -20,6 +20,14 @@ struct User: Codable, Identifiable, Equatable, Sendable {
         case `public`
         case `private`
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, displayName, bio, visibility
+        case profilePhotoURL = "profilePhotoUrl"
+        case instagramHandle, snapchatHandle
+        case totalLikes, followerCount, followingCount
+        case commentsEnabled, lastPostAt, createdAt
+    }
 }
 
 struct UserProfile: Decodable, Sendable {

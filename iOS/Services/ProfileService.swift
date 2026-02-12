@@ -39,7 +39,11 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
     }
 
     func fetchArchive(cursor: Date? = nil, limit: Int = 20) async throws -> ArchivePage {
-        try await client.request(.archive(cursor: cursor, limit: limit))
+        // PostgREST returns TABLE functions as flat JSON arrays
+        let posts: [ArchivePost] = try await client.request(.archive(cursor: cursor, limit: limit))
+        let hasMore = posts.count >= limit
+        let nextCursor = posts.last?.createdAt
+        return ArchivePage(posts: posts, nextCursor: nextCursor, hasMore: hasMore)
     }
 
     func updateProfile(_ update: ProfileUpdate) async throws {

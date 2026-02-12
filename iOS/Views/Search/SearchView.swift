@@ -71,6 +71,19 @@ struct SearchView: View {
             ProgressView()
                 .tint(Theme.textTertiary)
             Spacer()
+        } else if let error = viewModel.error {
+            Spacer()
+            VStack(spacing: Theme.spacingS) {
+                Text("Search failed")
+                    .font(Theme.headlineFont)
+                    .foregroundColor(Theme.textPrimary)
+                Text(error)
+                    .font(Theme.bodyFont)
+                    .foregroundColor(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, Theme.spacingXL)
+            Spacer()
         } else if viewModel.results.isEmpty && viewModel.hasSearched {
             Spacer()
             VStack(spacing: Theme.spacingS) {

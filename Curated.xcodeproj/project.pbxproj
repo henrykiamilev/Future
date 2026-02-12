@@ -88,6 +88,7 @@
 		B10000000000000000000020 /* SocialLinksRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialLinksRow.swift; sourceTree = "<group>"; };
 		B10000000000000000000021 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10000000000000000000022 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000040 /* Curated.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Curated.entitlements; sourceTree = "<group>"; };
 		B10000000000000000000023 /* Curated.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Curated.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000024 /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
 		B10000000000000000000025 /* CommentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentService.swift; sourceTree = "<group>"; };
@@ -142,6 +143,7 @@
 				D1000000000000000000000F /* Components */,
 				B10000000000000000000021 /* Assets.xcassets */,
 				B10000000000000000000022 /* Info.plist */,
+				B10000000000000000000040 /* Curated.entitlements */,
 			);
 			path = iOS;
 			sourceTree = "<group>";
@@ -559,6 +561,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS/Curated.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -591,6 +594,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS/Curated.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
