@@ -4,17 +4,29 @@ import SwiftUI
 struct CuratedApp: App {
 
     @StateObject private var appState = AppState()
+    @State private var showSplash = true
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if appState.isAuthenticated {
-                    MainTabView()
-                } else {
-                    AuthView()
+            ZStack {
+                Group {
+                    if appState.isAuthenticated {
+                        MainTabView()
+                    } else {
+                        AuthView()
+                    }
+                }
+                .environmentObject(appState)
+                .preferredColorScheme(.light)
+
+                if showSplash {
+                    SplashScreenView {
+                        showSplash = false
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
                 }
             }
-            .environmentObject(appState)
             .preferredColorScheme(.light)
         }
     }
