@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 @main
 struct CuratedApp: App {
@@ -59,7 +60,7 @@ final class AppState: ObservableObject {
 
     @Published var isAuthenticated = false
 
-    private var authExpiryObserver: NSObjectProtocol?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         let token = KeychainTokenProvider()
@@ -83,13 +84,12 @@ final class AppState: ObservableObject {
 
         self.isAuthenticated = token.currentToken != nil
 
-        authExpiryObserver = NotificationCenter.default.addObserver(
-            forName: .authSessionExpired,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.isAuthenticated = false
-        }
+        NotificationCenter.default.publisher(for: .authSessionExpired)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.isAuthenticated = false
+            }
+            .store(in: &cancellables)
     }
 
     // Cached view models to avoid re-allocation on every SwiftUI body evaluation
