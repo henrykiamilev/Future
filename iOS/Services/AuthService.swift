@@ -35,6 +35,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
             )
         )
         tokenProvider.store(token: response.accessToken)
+        tokenProvider.storeRefreshToken(response.refreshToken)
     }
 
     func signUp(username: String, email: String, password: String) async throws {
@@ -52,6 +53,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
             )
         )
         tokenProvider.store(token: response.accessToken)
+        tokenProvider.storeRefreshToken(response.refreshToken)
 
         // Create the user row in our users table (Supabase Auth creates
         // auth.users, but we need a row in public.users for our schema).
@@ -71,6 +73,7 @@ final class AuthService: AuthServiceProtocol, Sendable {
 
     func signOut() {
         tokenProvider.clear()
+        NotificationCenter.default.post(name: .authSessionExpired, object: nil)
     }
 
     private func extractUserID(from token: String) -> UUID? {

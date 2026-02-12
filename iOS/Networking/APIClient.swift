@@ -84,6 +84,22 @@ final class APIClient: APIClientProtocol, Sendable {
                 return (data, http)
             }
 
+            // On 401, try to refresh the token once then retry
+            if http.statusCode == 401, attempt == 0 {
+                if await refreshAccessToken() {
+                    // Token refreshed — rebuild request with new token and retry
+                    let retryRequest = try buildRequest(endpoint)
+                    let (retryData, retryResponse) = try await session.data(for: retryRequest)
+                    if let retryHTTP = retryResponse as? HTTPURLResponse,
+                       (200...299).contains(retryHTTP.statusCode) {
+                        return (retryData, retryHTTP)
+                    }
+                }
+                // Refresh failed or retry still 401 — session is expired
+                NotificationCenter.default.post(name: .authSessionExpired, object: nil)
+                throw APIError.unauthorized
+            }
+
             // Retry on 429 with exponential backoff
             if http.statusCode == 429, attempt < maxRetries - 1 {
                 let delay = UInt64(pow(2.0, Double(attempt + 1))) * 1_000_000_000
@@ -95,6 +111,44 @@ final class APIClient: APIClientProtocol, Sendable {
         }
 
         throw APIError.rateLimited(retryAfter: nil)
+    }
+
+    /// Attempt to refresh the access token using the stored refresh token.
+    private func refreshAccessToken() async -> Bool {
+        guard let keychainProvider = tokenProvider as? KeychainTokenProvider,
+              let refreshToken = keychainProvider.currentRefreshToken else {
+            return false
+        }
+
+        struct RefreshRequest: Encodable {
+            let refreshToken: String
+        }
+        struct RefreshResponse: Decodable {
+            let accessToken: String
+            let refreshToken: String
+        }
+
+        let endpoint = APIEndpoint(
+            path: "/auth/v1/token",
+            method: .POST,
+            queryItems: [.init(name: "grant_type", value: "refresh_token")],
+            body: RefreshRequest(refreshToken: refreshToken)
+        )
+
+        do {
+            let request = try buildRequest(endpoint)
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
+                return false
+            }
+            let decoded = try decoder.decode(RefreshResponse.self, from: data)
+            keychainProvider.store(token: decoded.accessToken)
+            keychainProvider.storeRefreshToken(decoded.refreshToken)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func buildRequest(_ endpoint: APIEndpoint) throws -> URLRequest {
@@ -168,6 +222,12 @@ final class APIClient: APIClientProtocol, Sendable {
     }
 }
 
+// MARK: - Auth Notifications
+
+extension Notification.Name {
+    static let authSessionExpired = Notification.Name("authSessionExpired")
+}
+
 // MARK: - Token Provider
 
 protocol TokenProvider: Sendable {
@@ -177,8 +237,32 @@ protocol TokenProvider: Sendable {
 final class KeychainTokenProvider: TokenProvider, Sendable {
     private let service = "com.curated.app"
     private let account = "auth_token"
+    private let refreshAccount = "refresh_token"
 
     var currentToken: String? {
+        readKeychain(account: account)
+    }
+
+    var currentRefreshToken: String? {
+        readKeychain(account: refreshAccount)
+    }
+
+    func store(token: String) {
+        writeKeychain(account: account, value: token)
+    }
+
+    func storeRefreshToken(_ token: String) {
+        writeKeychain(account: refreshAccount, value: token)
+    }
+
+    func clear() {
+        deleteKeychain(account: account)
+        deleteKeychain(account: refreshAccount)
+    }
+
+    // MARK: - Keychain Helpers
+
+    private func readKeychain(account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -192,17 +276,15 @@ final class KeychainTokenProvider: TokenProvider, Sendable {
 
         guard status == errSecSuccess,
               let data = result as? Data,
-              let token = String(data: data, encoding: .utf8) else {
+              let value = String(data: data, encoding: .utf8) else {
             return nil
         }
-        return token
+        return value
     }
 
-    func store(token: String) {
-        guard let data = token.data(using: .utf8) else { return }
-
-        // Delete any existing token first
-        clear()
+    private func writeKeychain(account: String, value: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        deleteKeychain(account: account)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -215,7 +297,7 @@ final class KeychainTokenProvider: TokenProvider, Sendable {
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    func clear() {
+    private func deleteKeychain(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

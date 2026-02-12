@@ -59,6 +59,8 @@ final class AppState: ObservableObject {
 
     @Published var isAuthenticated = false
 
+    private var authExpiryObserver: NSObjectProtocol?
+
     init() {
         let token = KeychainTokenProvider()
         let client = APIClient(
@@ -80,21 +82,47 @@ final class AppState: ObservableObject {
         )
 
         self.isAuthenticated = token.currentToken != nil
+
+        authExpiryObserver = NotificationCenter.default.addObserver(
+            forName: .authSessionExpired,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.isAuthenticated = false
+        }
     }
 
+    // Cached view models to avoid re-allocation on every SwiftUI body evaluation
+    private var cachedFeedVM: FeedViewModel?
+    private var cachedPostVM: PostViewModel?
+    private var cachedProfileVMs: [UUID: ProfileViewModel] = [:]
+    private var cachedSettingsVM: SettingsViewModel?
+
     func makeFeedViewModel() -> FeedViewModel {
-        FeedViewModel(feedService: feedService, postService: postService)
+        if let vm = cachedFeedVM { return vm }
+        let vm = FeedViewModel(feedService: feedService, postService: postService)
+        cachedFeedVM = vm
+        return vm
     }
 
     func makePostViewModel() -> PostViewModel {
-        PostViewModel(imageUploadService: imageUploadService, postService: postService)
+        if let vm = cachedPostVM { return vm }
+        let vm = PostViewModel(imageUploadService: imageUploadService, postService: postService)
+        cachedPostVM = vm
+        return vm
     }
 
     func makeProfileViewModel(userID: UUID) -> ProfileViewModel {
-        ProfileViewModel(userID: userID, profileService: profileService, postService: postService)
+        if let vm = cachedProfileVMs[userID] { return vm }
+        let vm = ProfileViewModel(userID: userID, profileService: profileService, postService: postService)
+        cachedProfileVMs[userID] = vm
+        return vm
     }
 
     func makeSettingsViewModel() -> SettingsViewModel {
-        SettingsViewModel(profileService: profileService, authService: authService)
+        if let vm = cachedSettingsVM { return vm }
+        let vm = SettingsViewModel(profileService: profileService, authService: authService)
+        cachedSettingsVM = vm
+        return vm
     }
 }
