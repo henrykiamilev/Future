@@ -24,7 +24,23 @@ final class APIClient: APIClientProtocol, Sendable {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
+        // Supabase/PostgreSQL returns ISO 8601 dates with fractional seconds
+        // (e.g. "2024-01-01T00:00:00.000000Z") which the built-in .iso8601
+        // strategy cannot parse. Use a custom strategy that handles both forms.
+        let isoFractional = ISO8601DateFormatter()
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoStandard = ISO8601DateFormatter()
+        isoStandard.formatOptions = [.withInternetDateTime]
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+            if let date = isoFractional.date(from: dateString) { return date }
+            if let date = isoStandard.date(from: dateString) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date: \(dateString)"
+            )
+        }
         self.decoder = decoder
 
         let encoder = JSONEncoder()
@@ -40,6 +56,12 @@ final class APIClient: APIClientProtocol, Sendable {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
+            #if DEBUG
+            print("[APIClient] Decoding \(T.self) failed: \(error)")
+            if let raw = String(data: data, encoding: .utf8) {
+                print("[APIClient] Raw response: \(raw.prefix(500))")
+            }
+            #endif
             throw APIError.decodingFailed(underlying: error.localizedDescription)
         }
     }
