@@ -11,7 +11,7 @@
 
 DO $$
 DECLARE
-    base TEXT := 'https://YOUR_PROJECT_REF.supabase.co/storage/v1/object/public/posts';
+    base TEXT := 'https://rylyzntjznnwmysszbzq.supabase.co/storage/v1/object/public/posts';
 
     -- User IDs (fixed so we can reference them)
     sofia_id   UUID := 'a1000000-0000-0000-0000-000000000001';
