@@ -1,10 +1,12 @@
 import SwiftUI
+import PhotosUI
 
 struct SettingsView: View {
 
     @StateObject var viewModel: SettingsViewModel
     @Environment(\.dismiss) private var dismiss
     let profile: UserProfile
+    @State private var selectedPhoto: PhotosPickerItem?
 
     var body: some View {
         NavigationStack {
@@ -13,6 +15,7 @@ struct SettingsView: View {
                     avatarHeader
                     profileFieldsCard
                     socialLinksCard
+                    postPreferencesCard
                     accountCard
                     dangerZone
                 }
@@ -77,21 +80,48 @@ struct SettingsView: View {
 
     private var avatarHeader: some View {
         VStack(spacing: Theme.spacingS) {
-            AsyncImage(url: URL(string: profile.user.profilePhotoURL ?? "")) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
-                Circle()
-                    .fill(Theme.separator)
-                    .overlay {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(Theme.textTertiary)
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                ZStack(alignment: .bottomTrailing) {
+                    AsyncImage(url: URL(string: viewModel.profilePhotoURL ?? "")) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Circle()
+                            .fill(Theme.separator)
+                            .overlay {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(Theme.textTertiary)
+                            }
                     }
+                    .frame(width: 72, height: 72)
+                    .clipShape(Circle())
+
+                    if viewModel.isUploadingPhoto {
+                        Circle()
+                            .fill(Color.black.opacity(0.4))
+                            .frame(width: 72, height: 72)
+                            .overlay {
+                                ProgressView().tint(.white)
+                            }
+                    }
+
+                    Image(systemName: "camera.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Theme.accent)
+                        .background(Circle().fill(Theme.background).padding(2))
+                }
             }
-            .frame(width: 72, height: 72)
-            .clipShape(Circle())
+            .onChange(of: selectedPhoto) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        await viewModel.uploadProfilePhoto(image)
+                    }
+                }
+            }
 
             Text("@\(profile.user.username)")
                 .font(Theme.captionFont)
@@ -154,6 +184,52 @@ struct SettingsView: View {
             }
 
             Text("Tapping your handle on your profile will open the app directly.")
+                .font(Theme.captionFont)
+                .foregroundColor(Theme.textTertiary)
+                .padding(.top, Theme.spacingS)
+                .padding(.horizontal, Theme.spacingXS)
+        }
+    }
+
+    // MARK: - Post Preferences Card
+
+    private var postPreferencesCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            cardHeader("Posts")
+
+            VStack(spacing: 0) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Allow comments")
+                            .font(Theme.bodyFont)
+                            .foregroundColor(Theme.textPrimary)
+
+                        Text("Let others comment on your posts")
+                            .font(Theme.captionFont)
+                            .foregroundColor(Theme.textTertiary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        Task { await viewModel.toggleComments() }
+                    } label: {
+                        Text(viewModel.commentsEnabled ? "On" : "Off")
+                            .font(Theme.headlineFont)
+                            .foregroundColor(viewModel.commentsEnabled ? Theme.accent : Theme.textTertiary)
+                    }
+                }
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.vertical, 14)
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.radiusL)
+                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
+            }
+
+            Text("When off, no one can comment on any of your posts.")
                 .font(Theme.captionFont)
                 .foregroundColor(Theme.textTertiary)
                 .padding(.top, Theme.spacingS)

@@ -7,6 +7,10 @@ protocol ProfileServiceProtocol: Sendable {
     func follow(userID: UUID) async throws
     func unfollow(userID: UUID) async throws
     func updateVisibility(_ visibility: User.AccountVisibility) async throws
+    func updateCommentsEnabled(_ enabled: Bool) async throws
+    func updateProfilePhoto(url: String) async throws
+    func getFollowers(userID: UUID) async throws -> [UserSummary]
+    func getFollowing(userID: UUID) async throws -> [UserSummary]
     func deleteAccount() async throws
 }
 
@@ -46,6 +50,22 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func updateVisibility(_ visibility: User.AccountVisibility) async throws {
         try await client.requestVoid(.updateVisibility(visibility))
+    }
+
+    func updateCommentsEnabled(_ enabled: Bool) async throws {
+        try await client.requestVoid(.updateCommentsEnabled(enabled))
+    }
+
+    func updateProfilePhoto(url: String) async throws {
+        try await client.requestVoid(.updateProfilePhoto(url: url))
+    }
+
+    func getFollowers(userID: UUID) async throws -> [UserSummary] {
+        try await client.request(.followers(userID: userID))
+    }
+
+    func getFollowing(userID: UUID) async throws -> [UserSummary] {
+        try await client.request(.following(userID: userID))
     }
 
     func deleteAccount() async throws {

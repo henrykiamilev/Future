@@ -6,12 +6,18 @@ struct CuratedApp: App {
 
     @StateObject private var appState = AppState()
     @State private var showSplash = true
+    @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 Group {
-                    if appState.isAuthenticated {
+                    if showOnboarding {
+                        OnboardingView {
+                            UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+                            withAnimation { showOnboarding = false }
+                        }
+                    } else if appState.isAuthenticated {
                         MainTabView()
                     } else {
                         AuthView()
@@ -29,6 +35,11 @@ struct CuratedApp: App {
                 }
             }
             .preferredColorScheme(.light)
+            .onChange(of: appState.isAuthenticated) { _, isAuth in
+                if isAuth && !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
+                    showOnboarding = true
+                }
+            }
         }
     }
 }
@@ -57,6 +68,9 @@ final class AppState: ObservableObject {
     let postService: PostService
     let profileService: ProfileService
     let imageUploadService: ImageUploadService
+    let searchService: SearchService
+    let commentService: CommentService
+    let notificationService: NotificationService
 
     @Published var isAuthenticated = false
 
@@ -81,6 +95,9 @@ final class AppState: ObservableObject {
             anonKey: SupabaseConfig.anonKey,
             tokenProvider: token
         )
+        self.searchService = SearchService(client: client)
+        self.commentService = CommentService(client: client)
+        self.notificationService = NotificationService(client: client)
 
         self.isAuthenticated = token.currentToken != nil
 
@@ -97,6 +114,7 @@ final class AppState: ObservableObject {
     private var cachedPostVM: PostViewModel?
     private var cachedProfileVMs: [UUID: ProfileViewModel] = [:]
     private var cachedSettingsVM: SettingsViewModel?
+    private var cachedSearchVM: SearchViewModel?
 
     func makeFeedViewModel() -> FeedViewModel {
         if let vm = cachedFeedVM { return vm }
@@ -121,8 +139,32 @@ final class AppState: ObservableObject {
 
     func makeSettingsViewModel() -> SettingsViewModel {
         if let vm = cachedSettingsVM { return vm }
-        let vm = SettingsViewModel(profileService: profileService, authService: authService)
+        let vm = SettingsViewModel(
+            profileService: profileService,
+            authService: authService,
+            imageUploadService: imageUploadService
+        )
         cachedSettingsVM = vm
         return vm
+    }
+
+    func makeSearchViewModel() -> SearchViewModel {
+        if let vm = cachedSearchVM { return vm }
+        let vm = SearchViewModel(searchService: searchService)
+        cachedSearchVM = vm
+        return vm
+    }
+
+    func makePostDetailViewModel(post: FeedPost, commentsEnabled: Bool) -> PostDetailViewModel {
+        PostDetailViewModel(
+            post: post,
+            commentsEnabled: commentsEnabled,
+            commentService: commentService,
+            postService: postService
+        )
+    }
+
+    func makeFollowListViewModel(userID: UUID) -> FollowListViewModel {
+        FollowListViewModel(userID: userID, profileService: profileService)
     }
 }

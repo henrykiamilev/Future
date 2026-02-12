@@ -218,6 +218,106 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Search Endpoints
+
+extension APIEndpoint {
+    static func searchUsers(query: String, limit: Int = 20) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/search_users",
+            method: .POST,
+            body: RPCSearch(p_query: query, p_limit: limit)
+        )
+    }
+}
+
+// MARK: - Comment Endpoints
+
+extension APIEndpoint {
+    static func getComments(postID: UUID, cursor: Date? = nil, limit: Int = 30) -> APIEndpoint {
+        var cursorString: String?
+        if let cursor {
+            cursorString = ISO8601DateFormatter().string(from: cursor)
+        }
+        return APIEndpoint(
+            path: "/rest/v1/rpc/get_post_comments",
+            method: .POST,
+            body: RPCGetComments(
+                p_post_id: postID.uuidString,
+                p_cursor: cursorString,
+                p_limit: limit
+            )
+        )
+    }
+
+    static func addComment(postID: UUID, content: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/add_comment",
+            method: .POST,
+            body: RPCAddComment(p_post_id: postID.uuidString, p_content: content)
+        )
+    }
+
+    static func deleteComment(commentID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/delete_comment",
+            method: .POST,
+            body: RPCCommentID(p_comment_id: commentID.uuidString)
+        )
+    }
+}
+
+// MARK: - Followers / Following List Endpoints
+
+extension APIEndpoint {
+    static func followers(userID: UUID, limit: Int = 50) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_followers",
+            method: .POST,
+            body: RPCFollowList(p_user_id: userID.uuidString, p_limit: limit)
+        )
+    }
+
+    static func following(userID: UUID, limit: Int = 50) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_following",
+            method: .POST,
+            body: RPCFollowList(p_user_id: userID.uuidString, p_limit: limit)
+        )
+    }
+}
+
+// MARK: - Settings Endpoints (extended)
+
+extension APIEndpoint {
+    static func updateCommentsEnabled(_ enabled: Bool) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            body: CommentsEnabledUpdate(comments_enabled: enabled)
+        )
+    }
+
+    static func updateProfilePhoto(url: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            body: ProfilePhotoUpdate(profile_photo_url: url)
+        )
+    }
+}
+
+// MARK: - Push Notification Endpoints
+
+extension APIEndpoint {
+    static func registerPushToken(_ token: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/register_push_token",
+            method: .POST,
+            body: RPCPushToken(p_token: token, p_platform: "ios")
+        )
+    }
+}
+
 // MARK: - Supabase RPC Request Bodies
 
 private struct RPCMainFeed: Encodable, Sendable {
@@ -290,4 +390,42 @@ struct ProfileUpdate: Encodable, Sendable {
 
 private struct VisibilityUpdate: Encodable, Sendable {
     let visibility: User.AccountVisibility
+}
+
+private struct RPCSearch: Encodable, Sendable {
+    let p_query: String
+    let p_limit: Int
+}
+
+private struct RPCGetComments: Encodable, Sendable {
+    let p_post_id: String
+    let p_cursor: String?
+    let p_limit: Int
+}
+
+private struct RPCAddComment: Encodable, Sendable {
+    let p_post_id: String
+    let p_content: String
+}
+
+private struct RPCCommentID: Encodable, Sendable {
+    let p_comment_id: String
+}
+
+private struct RPCFollowList: Encodable, Sendable {
+    let p_user_id: String
+    let p_limit: Int
+}
+
+private struct CommentsEnabledUpdate: Encodable, Sendable {
+    let comments_enabled: Bool
+}
+
+private struct ProfilePhotoUpdate: Encodable, Sendable {
+    let profile_photo_url: String
+}
+
+private struct RPCPushToken: Encodable, Sendable {
+    let p_token: String
+    let p_platform: String
 }

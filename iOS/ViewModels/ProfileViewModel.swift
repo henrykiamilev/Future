@@ -21,7 +21,7 @@ final class ProfileViewModel: ObservableObject {
 
     private let profileService: ProfileServiceProtocol
     private let postService: PostServiceProtocol
-    private let userID: UUID
+    let userID: UUID
 
     init(userID: UUID, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
         self.userID = userID

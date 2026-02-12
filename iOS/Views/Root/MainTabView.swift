@@ -7,6 +7,7 @@ struct MainTabView: View {
 
     enum Tab: Hashable {
         case feed
+        case search
         case post
         case profile
     }
@@ -14,6 +15,7 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             feedTab
+            searchTab
             postTab
             profileTab
         }
@@ -25,11 +27,31 @@ struct MainTabView: View {
     private var feedTab: some View {
         NavigationStack {
             FeedView(viewModel: appState.makeFeedViewModel())
+                .navigationDestination(for: FeedPost.self) { post in
+                    PostDetailView(
+                        viewModel: appState.makePostDetailViewModel(post: post, commentsEnabled: false)
+                    )
+                }
         }
         .tabItem {
             Label("Feed", systemImage: "square.grid.2x2")
         }
         .tag(Tab.feed)
+    }
+
+    private var searchTab: some View {
+        NavigationStack {
+            SearchView(viewModel: appState.makeSearchViewModel()) { userID in
+                // Navigation handled via navigationDestination
+            }
+            .navigationDestination(for: UUID.self) { userID in
+                ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
+            }
+        }
+        .tabItem {
+            Label("Search", systemImage: "magnifyingglass")
+        }
+        .tag(Tab.search)
     }
 
     private var postTab: some View {

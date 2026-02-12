@@ -1,6 +1,7 @@
 import Foundation
 
-struct FeedPost: Codable, Identifiable, Equatable, Sendable {
+struct FeedPost: Codable, Identifiable, Equatable, Hashable, Sendable {
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     let id: UUID
     let userID: UUID
     let username: String

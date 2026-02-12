@@ -12,6 +12,7 @@ struct User: Codable, Identifiable, Equatable, Sendable {
     let totalLikes: Int
     let followerCount: Int
     let followingCount: Int
+    let commentsEnabled: Bool
     let lastPostAt: Date?
     let createdAt: Date
 
@@ -38,6 +39,7 @@ struct UserProfile: Codable, Sendable {
         let totalLikes: Int
         let followerCount: Int
         let followingCount: Int
+        let commentsEnabled: Bool
         let isFollowing: Bool
         let isFollower: Bool
         let followIsPending: Bool

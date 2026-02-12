@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -10,19 +11,28 @@ final class SettingsViewModel: ObservableObject {
     @Published var instagramHandle: String = ""
     @Published var snapchatHandle: String = ""
     @Published var visibility: User.AccountVisibility = .public
+    @Published var commentsEnabled: Bool = false
     @Published private(set) var isSaving = false
     @Published var error: String?
     @Published var showDeleteConfirmation = false
     @Published private(set) var didSignOut = false
+    @Published private(set) var isUploadingPhoto = false
+    @Published var profilePhotoURL: String?
 
     // MARK: - Dependencies
 
     private let profileService: ProfileServiceProtocol
     private let authService: AuthServiceProtocol
+    private let imageUploadService: ImageUploadServiceProtocol
 
-    init(profileService: ProfileServiceProtocol, authService: AuthServiceProtocol) {
+    init(
+        profileService: ProfileServiceProtocol,
+        authService: AuthServiceProtocol,
+        imageUploadService: ImageUploadServiceProtocol
+    ) {
         self.profileService = profileService
         self.authService = authService
+        self.imageUploadService = imageUploadService
     }
 
     // MARK: - Load from Profile
@@ -33,6 +43,8 @@ final class SettingsViewModel: ObservableObject {
         instagramHandle = profile.user.instagramHandle ?? ""
         snapchatHandle = profile.user.snapchatHandle ?? ""
         visibility = profile.user.visibility
+        commentsEnabled = profile.user.commentsEnabled
+        profilePhotoURL = profile.user.profilePhotoURL
     }
 
     // MARK: - Save Profile
@@ -70,6 +82,38 @@ final class SettingsViewModel: ObservableObject {
         }
 
         isSaving = false
+    }
+
+    // MARK: - Comments Toggle
+
+    func toggleComments() async {
+        let newValue = !commentsEnabled
+        isSaving = true
+
+        do {
+            try await profileService.updateCommentsEnabled(newValue)
+            commentsEnabled = newValue
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isSaving = false
+    }
+
+    // MARK: - Profile Photo
+
+    func uploadProfilePhoto(_ image: UIImage) async {
+        isUploadingPhoto = true
+
+        do {
+            let uploaded = try await imageUploadService.upload(image: image, onProgress: { _ in })
+            try await profileService.updateProfilePhoto(url: uploaded.url)
+            profilePhotoURL = uploaded.url
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isUploadingPhoto = false
     }
 
     // MARK: - Delete Account

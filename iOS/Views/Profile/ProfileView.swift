@@ -5,6 +5,7 @@ struct ProfileView: View {
     @StateObject var viewModel: ProfileViewModel
     @EnvironmentObject private var appState: AppState
     @State private var showSettings = false
+    @State private var showFollowList = false
 
     private let signatureTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3
     private let liveTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3 * 0.78
@@ -124,15 +125,38 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack(spacing: 0) {
-            statItem(value: viewModel.totalLikes, label: "Likes")
-            statItem(value: viewModel.followerCount, label: "Followers")
-            statItem(value: viewModel.followingCount, label: "Following")
+            statItem(value: viewModel.totalLikes, label: "Likes", tappable: false)
+
+            Button { showFollowList = true } label: {
+                statItem(value: viewModel.followerCount, label: "Followers", tappable: true)
+            }
+            .buttonStyle(.plain)
+
+            Button { showFollowList = true } label: {
+                statItem(value: viewModel.followingCount, label: "Following", tappable: true)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, Theme.spacingL)
         .padding(.bottom, Theme.spacingXL)
+        .sheet(isPresented: $showFollowList) {
+            NavigationStack {
+                FollowListView(
+                    viewModel: appState.makeFollowListViewModel(userID: viewModel.userID),
+                    onUserTapped: { _ in }
+                )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showFollowList = false }
+                            .font(Theme.headlineFont)
+                            .foregroundColor(Theme.accent)
+                    }
+                }
+            }
+        }
     }
 
-    private func statItem(value: Int, label: String) -> some View {
+    private func statItem(value: Int, label: String, tappable: Bool) -> some View {
         VStack(spacing: 2) {
             Text(formatStat(value))
                 .font(Theme.statNumberFont)
@@ -140,7 +164,7 @@ struct ProfileView: View {
 
             Text(label)
                 .font(Theme.statLabelFont)
-                .foregroundColor(Theme.textTertiary)
+                .foregroundColor(tappable ? Theme.accent : Theme.textTertiary)
         }
         .frame(maxWidth: .infinity)
     }
