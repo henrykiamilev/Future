@@ -7,9 +7,15 @@ struct CuratedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
-                .environmentObject(appState)
-                .preferredColorScheme(.light)
+            Group {
+                if appState.isAuthenticated {
+                    MainTabView()
+                } else {
+                    AuthView()
+                }
+            }
+            .environmentObject(appState)
+            .preferredColorScheme(.light)
         }
     }
 }
