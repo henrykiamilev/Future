@@ -21,11 +21,10 @@ struct FeedPostCard: View {
     private var authorRow: some View {
         Button(action: onAuthorTapped) {
             HStack(spacing: Theme.spacingS) {
-                AsyncImage(url: URL(string: post.authorPhoto ?? "")) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
+                CachedImageView(
+                    url: URL(string: post.authorPhoto ?? ""),
+                    targetSize: CGSize(width: 32, height: 32)
+                ) {
                     Circle()
                         .fill(Theme.separator)
                 }
@@ -52,26 +51,17 @@ struct FeedPostCard: View {
 
     private var postImage: some View {
         let aspect = CGFloat(post.imageHeight) / max(1, CGFloat(post.imageWidth))
+        let screenWidth = UIScreen.main.bounds.width
 
-        return AsyncImage(url: URL(string: post.imageURL)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFill()
-            case .failure:
-                Rectangle()
-                    .fill(Theme.separator)
-                    .overlay {
-                        Image(systemName: "photo")
-                            .foregroundColor(Theme.textTertiary)
-                    }
-            default:
-                Rectangle()
-                    .fill(Theme.background)
-                    .overlay { ProgressView().tint(Theme.textTertiary) }
-            }
+        return CachedImageView(
+            url: URL(string: post.imageURL),
+            targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
+        ) {
+            Rectangle()
+                .fill(Theme.background)
+                .overlay { ProgressView().tint(Theme.textTertiary) }
         }
+        .scaledToFill()
         .aspectRatio(1 / aspect, contentMode: .fit)
         .clipped()
     }

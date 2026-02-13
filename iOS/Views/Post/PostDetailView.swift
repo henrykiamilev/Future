@@ -33,9 +33,10 @@ struct PostDetailView: View {
 
     private var authorRow: some View {
         HStack(spacing: Theme.spacingS) {
-            AsyncImage(url: URL(string: viewModel.post.authorPhoto ?? "")) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
+            CachedImageView(
+                url: URL(string: viewModel.post.authorPhoto ?? ""),
+                targetSize: CGSize(width: 36, height: 36)
+            ) {
                 Circle().fill(Theme.separator)
             }
             .frame(width: 36, height: 36)
@@ -61,24 +62,17 @@ struct PostDetailView: View {
 
     private var postImage: some View {
         let aspect = CGFloat(viewModel.post.imageHeight) / max(1, CGFloat(viewModel.post.imageWidth))
+        let screenWidth = UIScreen.main.bounds.width
 
-        return AsyncImage(url: URL(string: viewModel.post.imageURL)) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            case .failure:
-                Rectangle()
-                    .fill(Theme.separator)
-                    .overlay {
-                        Image(systemName: "photo")
-                            .foregroundColor(Theme.textTertiary)
-                    }
-            default:
-                Rectangle()
-                    .fill(Theme.background)
-                    .overlay { ProgressView().tint(Theme.textTertiary) }
-            }
+        return CachedImageView(
+            url: URL(string: viewModel.post.imageURL),
+            targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
+        ) {
+            Rectangle()
+                .fill(Theme.background)
+                .overlay { ProgressView().tint(Theme.textTertiary) }
         }
+        .scaledToFill()
         .aspectRatio(1 / aspect, contentMode: .fit)
         .clipped()
     }
@@ -205,9 +199,10 @@ struct PostDetailView: View {
 
     private func commentRow(_ comment: Comment) -> some View {
         HStack(alignment: .top, spacing: Theme.spacingS) {
-            AsyncImage(url: URL(string: comment.authorPhoto ?? "")) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
+            CachedImageView(
+                url: URL(string: comment.authorPhoto ?? ""),
+                targetSize: CGSize(width: 28, height: 28)
+            ) {
                 Circle().fill(Theme.separator)
             }
             .frame(width: 28, height: 28)

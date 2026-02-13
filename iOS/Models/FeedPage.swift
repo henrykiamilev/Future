@@ -4,6 +4,32 @@ struct FeedPage: Decodable, Sendable {
     let posts: [FeedPost]
     let nextCursor: FeedCursor?
     let hasMore: Bool
+
+    init(from decoder: Decoder) throws {
+        // Server may return a raw JSON array (PostgREST) or a keyed object
+        if var array = try? decoder.unkeyedContainer() {
+            var posts: [FeedPost] = []
+            posts.reserveCapacity(array.count ?? 0)
+            while !array.isAtEnd {
+                posts.append(try array.decode(FeedPost.self))
+            }
+            self.posts = posts
+            self.nextCursor = nil
+            self.hasMore = false
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.posts = try container.decode([FeedPost].self, forKey: .posts)
+        self.nextCursor = try container.decodeIfPresent(FeedCursor.self, forKey: .nextCursor)
+        self.hasMore = try container.decode(Bool.self, forKey: .hasMore)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case posts
+        case nextCursor
+        case hasMore
+    }
 }
 
 enum FeedCursor: Sendable, Equatable {

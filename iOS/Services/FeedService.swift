@@ -27,10 +27,13 @@ final class FeedService: FeedServiceProtocol, Sendable {
             .mainFeed(cursorScore: cursorScore, cursorID: cursorID, limit: limit)
         )
 
-        // Record exposures for returned authors (structured — awaited inline)
+        // Fire-and-forget: don't block feed delivery on exposure recording
         let authorIDs = Array(Set(page.posts.map(\.userID)))
         if !authorIDs.isEmpty {
-            try? await recordExposures(authorIDs: authorIDs)
+            let client = self.client
+            Task.detached {
+                try? await client.requestVoid(.recordExposures(authorIDs: authorIDs))
+            }
         }
 
         return page

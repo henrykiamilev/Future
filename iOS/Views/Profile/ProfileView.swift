@@ -55,11 +55,10 @@ struct ProfileView: View {
     private var profileHeader: some View {
         VStack(spacing: Theme.spacingS) {
             // Centered avatar
-            AsyncImage(url: URL(string: viewModel.profilePhotoURL ?? "")) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
+            CachedImageView(
+                url: URL(string: viewModel.profilePhotoURL ?? ""),
+                targetSize: CGSize(width: 80, height: 80)
+            ) {
                 Circle()
                     .fill(Theme.separator)
                     .overlay {
@@ -196,13 +195,13 @@ struct ProfileView: View {
     }
 
     private func signatureTile(_ post: PostSummary) -> some View {
-        AsyncImage(url: URL(string: post.imageURL)) { image in
-            image
-                .resizable()
-                .scaledToFill()
-        } placeholder: {
+        CachedImageView(
+            url: URL(string: post.imageURL),
+            targetSize: CGSize(width: signatureTileSize, height: signatureTileSize * 1.25)
+        ) {
             Rectangle().fill(Theme.separator)
         }
+        .scaledToFill()
         .frame(width: signatureTileSize, height: signatureTileSize * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {
@@ -247,13 +246,13 @@ struct ProfileView: View {
     }
 
     private func liveTile(_ post: PostSummary) -> some View {
-        AsyncImage(url: URL(string: post.imageURL)) { image in
-            image
-                .resizable()
-                .scaledToFill()
-        } placeholder: {
+        CachedImageView(
+            url: URL(string: post.imageURL),
+            targetSize: CGSize(width: liveTileSize, height: liveTileSize * 1.25)
+        ) {
             Rectangle().fill(Theme.separator)
         }
+        .scaledToFill()
         .frame(width: liveTileSize, height: liveTileSize * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {

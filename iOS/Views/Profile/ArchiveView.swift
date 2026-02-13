@@ -59,13 +59,13 @@ struct ArchiveView: View {
     private func archiveTile(_ post: ArchivePost) -> some View {
         let size = (UIScreen.main.bounds.width - 4) / 3
 
-        return AsyncImage(url: URL(string: post.imageURL)) { image in
-            image
-                .resizable()
-                .scaledToFill()
-        } placeholder: {
+        return CachedImageView(
+            url: URL(string: post.imageURL),
+            targetSize: CGSize(width: size, height: size)
+        ) {
             Rectangle().fill(Theme.separator)
         }
+        .scaledToFill()
         .frame(width: size, height: size)
         .clipped()
         .overlay(alignment: .topTrailing) {

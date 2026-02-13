@@ -84,11 +84,10 @@ struct SettingsView: View {
         VStack(spacing: Theme.spacingS) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 ZStack(alignment: .bottomTrailing) {
-                    AsyncImage(url: URL(string: viewModel.profilePhotoURL ?? "")) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
+                    CachedImageView(
+                        url: URL(string: viewModel.profilePhotoURL ?? ""),
+                        targetSize: CGSize(width: 72, height: 72)
+                    ) {
                         Circle()
                             .fill(Theme.separator)
                             .overlay {

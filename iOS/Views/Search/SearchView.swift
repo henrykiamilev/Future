@@ -125,9 +125,10 @@ struct SearchView: View {
     private func userRow(_ user: UserSummary) -> some View {
         NavigationLink(value: user.id) {
             HStack(spacing: Theme.spacingM) {
-                AsyncImage(url: URL(string: user.profilePhotoURL ?? "")) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
+                CachedImageView(
+                    url: URL(string: user.profilePhotoURL ?? ""),
+                    targetSize: CGSize(width: 44, height: 44)
+                ) {
                     Circle()
                         .fill(Theme.separator)
                         .overlay {

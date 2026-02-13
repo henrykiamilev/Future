@@ -84,6 +84,7 @@ final class AppState: ObservableObject {
     // Infrastructure
     let tokenProvider: KeychainTokenProvider
     let apiClient: APIClient
+    let urlSession: URLSession
 
     // Services
     let authService: AuthService
@@ -101,13 +102,28 @@ final class AppState: ObservableObject {
 
     init() {
         let token = KeychainTokenProvider()
+
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 4
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 120
+        config.urlCache = URLCache(
+            memoryCapacity: 50_000_000,
+            diskCapacity: 200_000_000
+        )
+        config.requestCachePolicy = .returnCacheDataElseLoad
+        let session = URLSession(configuration: config)
+
         let client = APIClient(
             baseURL: SupabaseConfig.projectURL,
+            session: session,
             tokenProvider: token,
             supabaseAnonKey: SupabaseConfig.anonKey
         )
 
         self.tokenProvider = token
+        self.urlSession = session
         self.apiClient = client
         self.authService = AuthService(client: client, tokenProvider: token)
         self.feedService = FeedService(client: client)
