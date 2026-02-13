@@ -62,6 +62,30 @@ struct UserProfile: Decodable, Sendable {
         case onboardingCompletedAt
         case signaturePosts, livePosts
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try c.decode(UUID.self, forKey: .userId)
+        username = try c.decode(String.self, forKey: .username)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
+        profilePhotoURL = try c.decodeIfPresent(String.self, forKey: .profilePhotoURL)
+        bio = try c.decodeIfPresent(String.self, forKey: .bio)
+        visibility = try c.decode(User.AccountVisibility.self, forKey: .visibility)
+        instagramHandle = try c.decodeIfPresent(String.self, forKey: .instagramHandle)
+        snapchatHandle = try c.decodeIfPresent(String.self, forKey: .snapchatHandle)
+        totalLikes = try c.decode(Int.self, forKey: .totalLikes)
+        followerCount = try c.decode(Int.self, forKey: .followerCount)
+        followingCount = try c.decode(Int.self, forKey: .followingCount)
+        commentsEnabled = try c.decode(Bool.self, forKey: .commentsEnabled)
+        isFollowing = try c.decode(Bool.self, forKey: .isFollowing)
+        isFollower = try c.decode(Bool.self, forKey: .isFollower)
+        followIsPending = try c.decode(Bool.self, forKey: .followIsPending)
+        isOwnProfile = try c.decode(Bool.self, forKey: .isOwnProfile)
+        onboardingCompletedAt = try c.decodeIfPresent(Date.self, forKey: .onboardingCompletedAt)
+        // Resilient JSONB decoding — fall back to empty arrays if nested data fails
+        signaturePosts = (try? c.decode([PostSummary].self, forKey: .signaturePosts)) ?? []
+        livePosts = (try? c.decode([PostSummary].self, forKey: .livePosts)) ?? []
+    }
 }
 
 struct PostSummary: Codable, Identifiable, Sendable {

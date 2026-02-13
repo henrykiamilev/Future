@@ -11,15 +11,55 @@ struct ProfileView: View {
     private let liveTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3 * 0.78
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                profileHeader
-                statsRow
-                signatureSection
-                liveSection
-                archiveButton
+        Group {
+            if viewModel.isLoading && viewModel.profile == nil {
+                VStack {
+                    Spacer()
+                    ProgressView()
+                        .tint(Theme.textTertiary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = viewModel.error, viewModel.profile == nil {
+                VStack(spacing: Theme.spacingM) {
+                    Spacer()
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 36, weight: .thin))
+                        .foregroundColor(Theme.textTertiary)
+                    Text("Couldn't load profile")
+                        .font(Theme.headlineFont)
+                        .foregroundColor(Theme.textPrimary)
+                    Text(error)
+                        .font(Theme.captionFont)
+                        .foregroundColor(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Theme.spacingXL)
+                    Button {
+                        Task { await viewModel.load() }
+                    } label: {
+                        Text("Retry")
+                            .font(Theme.headlineFont)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, Theme.spacingL)
+                            .padding(.vertical, Theme.spacingS)
+                            .background(Theme.accent)
+                            .cornerRadius(Theme.radiusM)
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        profileHeader
+                        statsRow
+                        signatureSection
+                        liveSection
+                        archiveButton
+                    }
+                    .padding(.bottom, Theme.spacingXXL)
+                }
             }
-            .padding(.bottom, Theme.spacingXXL)
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)

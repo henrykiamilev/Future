@@ -47,6 +47,14 @@ struct MainTabView: View {
             .navigationDestination(for: UUID.self) { userID in
                 ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
             }
+            .navigationDestination(for: ExplorePost.self) { post in
+                PostDetailView(
+                    viewModel: appState.makePostDetailViewModel(
+                        post: post.asFeedPost,
+                        commentsEnabled: true
+                    )
+                )
+            }
         }
         .tabItem {
             Label("Search", systemImage: "magnifyingglass")

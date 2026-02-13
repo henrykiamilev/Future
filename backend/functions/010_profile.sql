@@ -67,7 +67,7 @@ BEGIN
         u.onboarding_completed_at,
         -- Signature posts (max 3)
         COALESCE(
-            (SELECT jsonb_agg(sig ORDER BY sig.created_at DESC)
+            (SELECT jsonb_agg(sig ORDER BY created_at DESC)
              FROM (
                 SELECT
                     jsonb_build_object(

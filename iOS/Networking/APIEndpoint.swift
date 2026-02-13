@@ -230,6 +230,26 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Discover Endpoints
+
+extension APIEndpoint {
+    static func suggestedUsers(limit: Int = 10) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_suggested_users",
+            method: .POST,
+            body: RPCLimit(p_limit: limit)
+        )
+    }
+
+    static func explorePosts(limit: Int = 30) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_explore_posts",
+            method: .POST,
+            body: RPCLimit(p_limit: limit)
+        )
+    }
+}
+
 // MARK: - Comment Endpoints
 
 extension APIEndpoint {
@@ -406,6 +426,10 @@ private struct VisibilityUpdate: Encodable, Sendable {
 
 private struct RPCSearch: Encodable, Sendable {
     let p_query: String
+    let p_limit: Int
+}
+
+private struct RPCLimit: Encodable, Sendable {
     let p_limit: Int
 }
 
