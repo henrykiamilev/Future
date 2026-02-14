@@ -97,4 +97,5 @@ BEGIN
         v_expires,
         now() + INTERVAL '24 hours';
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;

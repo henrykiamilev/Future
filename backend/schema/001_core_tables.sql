@@ -21,13 +21,18 @@ CREATE TYPE report_status AS ENUM ('pending', 'reviewed', 'actioned', 'dismissed
 
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username        TEXT NOT NULL,
-    display_name    TEXT,
+    username        TEXT NOT NULL
+                    CONSTRAINT chk_username CHECK (char_length(username) BETWEEN 3 AND 30),
+    display_name    TEXT
+                    CONSTRAINT chk_display_name CHECK (display_name IS NULL OR char_length(display_name) <= 100),
     profile_photo_url TEXT,
-    bio             TEXT,
+    bio             TEXT
+                    CONSTRAINT chk_bio CHECK (bio IS NULL OR char_length(bio) <= 500),
     visibility      account_visibility NOT NULL DEFAULT 'public',
-    instagram_handle TEXT,
-    snapchat_handle  TEXT,
+    instagram_handle TEXT
+                    CONSTRAINT chk_instagram CHECK (instagram_handle IS NULL OR char_length(instagram_handle) <= 50),
+    snapchat_handle  TEXT
+                    CONSTRAINT chk_snapchat CHECK (snapchat_handle IS NULL OR char_length(snapchat_handle) <= 50),
     total_likes     BIGINT NOT NULL DEFAULT 0,       -- denormalized lifetime counter
     follower_count  BIGINT NOT NULL DEFAULT 0,       -- denormalized
     following_count BIGINT NOT NULL DEFAULT 0,       -- denormalized
@@ -91,8 +96,10 @@ CREATE INDEX idx_posts_expires_at ON posts (expires_at)
 CREATE TABLE tags (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     post_id         UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    label           TEXT NOT NULL,
-    external_url    TEXT,                              -- optional clickable link
+    label           TEXT NOT NULL
+                    CONSTRAINT chk_tag_label CHECK (char_length(label) BETWEEN 1 AND 200),
+    external_url    TEXT
+                    CONSTRAINT chk_tag_url CHECK (external_url IS NULL OR char_length(external_url) <= 2048),
     position_x      REAL,                             -- optional tag position on image
     position_y      REAL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()

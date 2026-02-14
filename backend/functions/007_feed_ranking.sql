@@ -44,7 +44,8 @@ BEGIN
     ON CONFLICT (post_id, hour_bucket)
     DO UPDATE SET view_count = post_view_hourly.view_count + 1;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- REFRESH FEED SCORES (pg_cron job — runs every 5 minutes)
@@ -232,7 +233,8 @@ BEGIN
       AND p.expires_at > now()
     ORDER BY f.final_score DESC, f.post_id DESC;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- RECORD FEED EXPOSURE (rolling 24h window)
@@ -259,4 +261,5 @@ BEGIN
             ELSE now()
         END;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;

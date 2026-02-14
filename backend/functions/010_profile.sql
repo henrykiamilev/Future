@@ -129,4 +129,5 @@ BEGIN
     WHERE u.id = p_user_id
       AND u.is_banned = FALSE;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;

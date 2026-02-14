@@ -193,10 +193,12 @@ CREATE POLICY follows_delete ON follows
     );
 
 -- Target user can approve pending follow requests
-CREATE POLICY follows_update ON follows
-    FOR UPDATE
-    USING (following_id = auth_uid())
-    WITH CHECK (following_id = auth_uid());
+-- REMOVED: Direct UPDATE policy replaced with approve_follow_request() RPC
+-- to prevent column manipulation (e.g., changing follower_id).
+-- CREATE POLICY follows_update ON follows
+--     FOR UPDATE
+--     USING (following_id = auth_uid())
+--     WITH CHECK (following_id = auth_uid());
 
 -- ============================================================================
 -- BLOCKS
@@ -255,3 +257,22 @@ CREATE POLICY feed_exposures_update ON feed_exposures
     FOR UPDATE
     USING (viewer_id = auth_uid())
     WITH CHECK (viewer_id = auth_uid());
+
+-- ============================================================================
+-- APPROVE FOLLOW REQUEST (replaces permissive follows_update policy)
+-- ============================================================================
+-- Only allows toggling is_approved on follow requests targeting the caller.
+-- Prevents column manipulation (e.g., changing follower_id).
+CREATE OR REPLACE FUNCTION approve_follow_request(p_follower_id UUID)
+RETURNS void AS $$
+BEGIN
+    UPDATE follows SET is_approved = TRUE
+    WHERE follower_id = p_follower_id
+      AND following_id = auth_uid()
+      AND is_approved = FALSE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'request_not_found';
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;

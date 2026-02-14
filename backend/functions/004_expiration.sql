@@ -71,6 +71,7 @@ RETURNS TABLE (
     expires_at TIMESTAMPTZ
 ) AS $$
 BEGIN
+    p_limit := LEAST(GREATEST(p_limit, 1), 100);
     RETURN QUERY
     SELECT
         p.id,
@@ -86,4 +87,5 @@ BEGIN
     ORDER BY p.created_at DESC
     LIMIT p_limit;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;

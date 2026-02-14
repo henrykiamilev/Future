@@ -28,8 +28,9 @@ RETURNS TABLE (
              OR (b.blocker_id = u.id AND b.blocked_id = auth_uid())
       )
     ORDER BY u.follower_count DESC
-    LIMIT p_limit;
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+    LIMIT LEAST(GREATEST(p_limit, 1), 100);
+$$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- EXPLORE POSTS (top-ranked posts from pre-computed feed_scores)
@@ -66,5 +67,6 @@ RETURNS TABLE (
       AND p.is_hidden = FALSE
       AND p.expires_at > now()
     ORDER BY fs.base_score DESC
-    LIMIT p_limit;
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+    LIMIT LEAST(GREATEST(p_limit, 1), 100);
+$$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;

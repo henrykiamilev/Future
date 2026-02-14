@@ -21,6 +21,10 @@ final class ImageCache: @unchecked Sendable {
         let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
         cache.setObject(image, forKey: key as NSString, cost: cost)
     }
+
+    func clearAll() {
+        cache.removeAllObjects()
+    }
 }
 
 // MARK: - Downsampling

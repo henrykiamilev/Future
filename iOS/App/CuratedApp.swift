@@ -112,7 +112,7 @@ final class AppState: ObservableObject {
             memoryCapacity: 50_000_000,
             diskCapacity: 200_000_000
         )
-        config.requestCachePolicy = .returnCacheDataElseLoad
+        config.requestCachePolicy = .useProtocolCachePolicy
         let session = URLSession(configuration: config)
 
         let client = APIClient(
@@ -143,6 +143,7 @@ final class AppState: ObservableObject {
         NotificationCenter.default.publisher(for: .authSessionExpired)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
+                self?.clearAllCaches()
                 self?.isAuthenticated = false
             }
             .store(in: &cancellables)
@@ -172,6 +173,10 @@ final class AppState: ObservableObject {
     func makeProfileViewModel(userID: UUID) -> ProfileViewModel {
         if let vm = cachedProfileVMs[userID] { return vm }
         let vm = ProfileViewModel(userID: userID, profileService: profileService, postService: postService)
+        // Cap cache at 20 entries to prevent unbounded memory growth
+        if cachedProfileVMs.count >= 20 {
+            cachedProfileVMs.removeAll()
+        }
         cachedProfileVMs[userID] = vm
         return vm
     }
@@ -205,5 +210,16 @@ final class AppState: ObservableObject {
 
     func makeFollowListViewModel(userID: UUID) -> FollowListViewModel {
         FollowListViewModel(userID: userID, profileService: profileService)
+    }
+
+    /// Clears all in-memory and URL caches. Called on sign-out to prevent data leaking between accounts.
+    func clearAllCaches() {
+        cachedFeedVM = nil
+        cachedPostVM = nil
+        cachedProfileVMs.removeAll()
+        cachedSettingsVM = nil
+        cachedSearchVM = nil
+        urlSession.configuration.urlCache?.removeAllCachedResponses()
+        ImageCache.shared.clearAll()
     }
 }

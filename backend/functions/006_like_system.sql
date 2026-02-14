@@ -20,12 +20,8 @@ BEGIN
     FROM posts p
     WHERE p.id = p_post_id;
 
-    IF v_post IS NULL THEN
-        RAISE EXCEPTION 'post_not_found: Post does not exist';
-    END IF;
-
-    IF v_post.is_hidden THEN
-        RAISE EXCEPTION 'post_hidden: Cannot like a hidden post';
+    IF v_post IS NULL OR v_post.is_hidden THEN
+        RAISE EXCEPTION 'post_not_accessible: Post is not available';
     END IF;
 
     -- Allow liking expired posts ONLY if they are signature posts
@@ -51,7 +47,8 @@ BEGIN
     RETURN QUERY
     SELECT p.like_count FROM posts p WHERE p.id = p_post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- UNLIKE A POST
@@ -72,7 +69,8 @@ BEGIN
     RETURN QUERY
     SELECT p.like_count FROM posts p WHERE p.id = p_post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- CHECK IF CURRENT USER LIKED POSTS (batch — avoids N+1)
@@ -89,4 +87,5 @@ BEGIN
         ) AS is_liked
     FROM unnest(p_post_ids) AS pid;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;

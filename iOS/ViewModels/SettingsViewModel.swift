@@ -53,12 +53,39 @@ final class SettingsViewModel: ObservableObject {
         isSaving = true
         error = nil
 
+        // Client-side validation (mirrors server CHECK constraints)
+        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIG = instagramHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSnap = snapchatHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmedName.isEmpty && trimmedName.count > 100 {
+            error = "Display name must be 100 characters or fewer."
+            isSaving = false
+            return
+        }
+        if !trimmedBio.isEmpty && trimmedBio.count > 500 {
+            error = "Bio must be 500 characters or fewer."
+            isSaving = false
+            return
+        }
+        if !trimmedIG.isEmpty && trimmedIG.count > 50 {
+            error = "Instagram handle must be 50 characters or fewer."
+            isSaving = false
+            return
+        }
+        if !trimmedSnap.isEmpty && trimmedSnap.count > 50 {
+            error = "Snapchat handle must be 50 characters or fewer."
+            isSaving = false
+            return
+        }
+
         do {
             let update = ProfileUpdate(
-                displayName: displayName.isEmpty ? nil : displayName,
-                bio: bio.isEmpty ? nil : bio,
-                instagramHandle: instagramHandle.isEmpty ? nil : instagramHandle,
-                snapchatHandle: snapchatHandle.isEmpty ? nil : snapchatHandle
+                displayName: trimmedName.isEmpty ? nil : trimmedName,
+                bio: trimmedBio.isEmpty ? nil : trimmedBio,
+                instagramHandle: trimmedIG.isEmpty ? nil : trimmedIG,
+                snapchatHandle: trimmedSnap.isEmpty ? nil : trimmedSnap
             )
             try await profileService.updateProfile(update)
         } catch {

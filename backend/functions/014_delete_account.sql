@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION delete_own_account()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_user_id UUID := auth.uid();

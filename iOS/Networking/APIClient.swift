@@ -317,7 +317,12 @@ final class KeychainTokenProvider: TokenProvider, Sendable {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
 
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            #if DEBUG
+            print("[Keychain] SecItemAdd failed with status: \(status)")
+            #endif
+        }
     }
 
     private func deleteKeychain(account: String) {

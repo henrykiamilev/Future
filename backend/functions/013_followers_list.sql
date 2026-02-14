@@ -14,8 +14,10 @@ RETURNS TABLE (
     profile_photo_url TEXT
 )
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
+    p_limit := LEAST(GREATEST(p_limit, 1), 100);
     RETURN QUERY
     SELECT
         u.id,
@@ -26,6 +28,12 @@ BEGIN
     JOIN public.users u ON u.id = f.follower_id
     WHERE f.following_id = p_user_id
       AND f.is_approved = TRUE
+      AND (
+          p_user_id = auth_uid()
+          OR EXISTS (SELECT 1 FROM users WHERE id = p_user_id AND visibility = 'public')
+          OR EXISTS (SELECT 1 FROM follows WHERE follower_id = auth_uid()
+                     AND following_id = p_user_id AND is_approved = TRUE)
+      )
     ORDER BY f.created_at DESC
     LIMIT p_limit;
 END;
@@ -43,8 +51,10 @@ RETURNS TABLE (
     profile_photo_url TEXT
 )
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
+    p_limit := LEAST(GREATEST(p_limit, 1), 100);
     RETURN QUERY
     SELECT
         u.id,
@@ -55,6 +65,12 @@ BEGIN
     JOIN public.users u ON u.id = f.following_id
     WHERE f.follower_id = p_user_id
       AND f.is_approved = TRUE
+      AND (
+          p_user_id = auth_uid()
+          OR EXISTS (SELECT 1 FROM users WHERE id = p_user_id AND visibility = 'public')
+          OR EXISTS (SELECT 1 FROM follows WHERE follower_id = auth_uid()
+                     AND following_id = p_user_id AND is_approved = TRUE)
+      )
     ORDER BY f.created_at DESC
     LIMIT p_limit;
 END;
@@ -67,6 +83,7 @@ CREATE OR REPLACE FUNCTION register_push_token(
 )
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_caller UUID := auth_uid();

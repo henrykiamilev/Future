@@ -285,25 +285,29 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
-        let continuation = activeContinuation
-        activeContinuation = nil
+        // Dispatch to sessionQueue to synchronize access to activeContinuation
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let continuation = self.activeContinuation
+            self.activeContinuation = nil
 
-        if let error {
-            continuation?.resume(throwing: CameraError.captureFailed(underlying: error.localizedDescription))
-            return
+            if let error {
+                continuation?.resume(throwing: CameraError.captureFailed(underlying: error.localizedDescription))
+                return
+            }
+
+            guard let data = photo.fileDataRepresentation() else {
+                continuation?.resume(throwing: CameraError.captureFailed(underlying: "No image data"))
+                return
+            }
+
+            guard let image = UIImage(data: data) else {
+                continuation?.resume(throwing: CameraError.captureFailed(underlying: "Invalid image data"))
+                return
+            }
+
+            continuation?.resume(returning: image)
         }
-
-        guard let data = photo.fileDataRepresentation() else {
-            continuation?.resume(throwing: CameraError.captureFailed(underlying: "No image data"))
-            return
-        }
-
-        guard let image = UIImage(data: data) else {
-            continuation?.resume(throwing: CameraError.captureFailed(underlying: "Invalid image data"))
-            return
-        }
-
-        continuation?.resume(returning: image)
     }
 }
 

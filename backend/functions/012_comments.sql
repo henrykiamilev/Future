@@ -10,11 +10,13 @@ CREATE OR REPLACE FUNCTION get_post_comments(
 )
 RETURNS JSON
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_comments JSON;
     v_count INT;
 BEGIN
+    p_limit := LEAST(GREATEST(p_limit, 1), 100);
     -- Verify the post author has comments enabled
     IF NOT EXISTS (
         SELECT 1 FROM public.posts p
@@ -63,6 +65,7 @@ CREATE OR REPLACE FUNCTION add_comment(
 )
 RETURNS JSON
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_caller UUID := auth_uid();
@@ -111,6 +114,7 @@ CREATE OR REPLACE FUNCTION delete_comment(
 )
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_caller UUID := auth_uid();
@@ -124,5 +128,8 @@ BEGIN
               WHERE p.id = comments.post_id AND p.user_id = v_caller
           )
       );
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'comment_not_found';
+    END IF;
 END;
 $$;

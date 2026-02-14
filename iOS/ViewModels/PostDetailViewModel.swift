@@ -71,6 +71,10 @@ final class PostDetailViewModel: ObservableObject {
     func sendComment() async {
         let text = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        guard text.count <= 500 else {
+            self.error = "Comment must be 500 characters or fewer."
+            return
+        }
 
         isSendingComment = true
         do {

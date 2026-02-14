@@ -42,7 +42,8 @@ BEGIN
     -- Count current signatures (trigger also enforces, but give a clear error)
     SELECT COUNT(*) INTO v_sig_count
     FROM posts
-    WHERE user_id = auth_uid() AND is_signature = TRUE;
+    WHERE user_id = auth_uid() AND is_signature = TRUE
+    FOR UPDATE;
 
     IF v_sig_count >= 3 THEN
         RAISE EXCEPTION 'signature_limit: You already have 3 signature posts. Remove one first.';
@@ -53,7 +54,8 @@ BEGIN
     SET is_signature = TRUE
     WHERE id = p_post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- REMOVE POST FROM SIGNATURE
@@ -85,7 +87,8 @@ BEGIN
     SET is_signature = FALSE
     WHERE id = p_post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- REPLACE SIGNATURE POST (atomic swap)
@@ -101,7 +104,8 @@ BEGIN
     -- Add the new one
     PERFORM add_to_signature(p_add_post_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
 -- GET USER SIGNATURE POSTS
@@ -140,4 +144,5 @@ BEGIN
     GROUP BY p.id, p.image_url, p.like_count, p.view_count, p.created_at
     ORDER BY p.created_at DESC;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
