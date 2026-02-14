@@ -69,26 +69,42 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
 
     private var currentInput: AVCaptureDeviceInput?
     private var activeContinuation: CheckedContinuation<UIImage, Error>?
+    private var isConfigured = false
 
     deinit {
-        // Fail any outstanding continuation to prevent a leaked coroutine.
-        // This avoids a crash if the coordinator is deallocated while a capture is in-flight.
-        if let continuation = activeContinuation {
-            activeContinuation = nil
-            continuation.resume(throwing: CameraError.sessionNotRunning)
+        // Capture values to avoid accessing self after deallocation.
+        // Dispatch to sessionQueue so cleanup doesn't race with in-flight operations.
+        let continuation = activeContinuation
+        let session = captureSession
+        let queue = sessionQueue
+        activeContinuation = nil
+        queue.async {
+            continuation?.resume(throwing: CameraError.sessionNotRunning)
+            session.stopRunning()
         }
-        captureSession.stopRunning()
     }
 
     // MARK: - Public: Session Lifecycle
 
-    /// Configures and starts the capture session. Call once when the camera view appears.
+    /// Configures (once) and starts the capture session. Safe to call multiple times.
     func start() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
+            // Already running — just sync the published flag
+            guard !self.captureSession.isRunning else {
+                DispatchQueue.main.async {
+                    self.isSessionRunning = true
+                }
+                return
+            }
+
             do {
-                try self.configureSession()
+                // Only configure hardware on first launch; subsequent starts just resume
+                if !self.isConfigured {
+                    try self.configureSession()
+                    self.isConfigured = true
+                }
                 self.captureSession.startRunning()
 
                 DispatchQueue.main.async {
@@ -106,6 +122,13 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     func stop() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
+
+            // Cancel any in-flight capture so the caller's Task doesn't hang forever
+            if let continuation = self.activeContinuation {
+                self.activeContinuation = nil
+                continuation.resume(throwing: CameraError.sessionNotRunning)
+            }
+
             self.captureSession.stopRunning()
 
             DispatchQueue.main.async {
@@ -119,13 +142,15 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     /// Captures a single photo. Returns a correctly-oriented UIImage.
     /// Throws `CameraError` on failure.
     func capturePhoto() async throws -> UIImage {
-        guard captureSession.isRunning else {
-            throw CameraError.sessionNotRunning
-        }
-
         return try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [weak self] in
                 guard let self else {
+                    continuation.resume(throwing: CameraError.sessionNotRunning)
+                    return
+                }
+
+                // Check isRunning on sessionQueue where session state is safe to read
+                guard self.captureSession.isRunning else {
                     continuation.resume(throwing: CameraError.sessionNotRunning)
                     return
                 }

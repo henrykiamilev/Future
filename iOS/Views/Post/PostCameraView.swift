@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PostCameraView: View {
 
-    @StateObject var viewModel: PostViewModel
+    @ObservedObject var viewModel: PostViewModel
 
     var body: some View {
         ZStack {

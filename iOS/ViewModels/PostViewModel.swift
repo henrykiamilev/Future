@@ -77,6 +77,8 @@ final class PostViewModel: ObservableObject {
 
     func checkCameraAuthorization() async {
         let granted = await CameraAuthorization.requestAccess()
+        // If the view disappeared while awaiting (tab switch), don't start the camera
+        guard !Task.isCancelled else { return }
         if granted {
             state = .camera
             camera.start()
