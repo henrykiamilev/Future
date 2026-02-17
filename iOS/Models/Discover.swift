@@ -1,0 +1,57 @@
+import Foundation
+
+struct SuggestedUser: Decodable, Identifiable, Sendable {
+    let id: UUID
+    let username: String
+    let displayName: String?
+    let profilePhotoURL: String?
+    let followerCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, displayName
+        case profilePhotoURL = "profilePhotoUrl"
+        case followerCount
+    }
+}
+
+struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: ExplorePost, rhs: ExplorePost) -> Bool { lhs.id == rhs.id }
+
+    let id: UUID
+    let userID: UUID
+    let username: String
+    let authorPhoto: String?
+    let imageURL: String
+    let imageWidth: Int
+    let imageHeight: Int
+    let likeCount: Int
+    let createdAt: Date
+    let score: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userID = "userId"
+        case username, authorPhoto
+        case imageURL = "imageUrl"
+        case imageWidth, imageHeight, likeCount, createdAt, score
+    }
+
+    var asFeedPost: FeedPost {
+        FeedPost(
+            id: id,
+            userID: userID,
+            username: username,
+            authorPhoto: authorPhoto,
+            imageURL: imageURL,
+            imageWidth: imageWidth,
+            imageHeight: imageHeight,
+            likeCount: likeCount,
+            viewCount: 0,
+            isLiked: false,
+            createdAt: createdAt,
+            score: score,
+            tags: []
+        )
+    }
+}
