@@ -73,7 +73,7 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         anonKey: String,
         tokenProvider: TokenProvider,
         compressor: ImageCompressorProtocol = ImageCompressor(),
-        bucket: String = "post-images"
+        bucket: String = SupabaseConfig.storageBucket
     ) {
         self.baseURL = baseURL
         self.anonKey = anonKey
@@ -116,7 +116,7 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         // ──────────────────────────────────────────────
         // Generate a unique file path: {user_id_prefix}/{uuid}.{ext}
         let ext = compressed.format == .heic ? "heic" : "jpg"
-        let fileName = "\(UUID().uuidString).\(ext)"
+        let fileName = "uploads/\(UUID().uuidString).\(ext)"
         let storagePath = "/storage/v1/object/\(bucket)/\(fileName)"
         let uploadURL = baseURL.appendingPathComponent(storagePath)
 
@@ -213,11 +213,14 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         config.timeoutIntervalForResource = 120
         let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
 
-        let (_, response): (Data, URLResponse)
+        let (responseData, response): (Data, URLResponse)
         do {
-            (_, response) = try await session.upload(for: request, from: data)
+            (responseData, response) = try await session.upload(for: request, from: data)
         } catch {
             session.invalidateAndCancel()
+            #if DEBUG
+            print("[ImageUpload] Network error uploading to \(url.absoluteString.prefix(120)): \(error.localizedDescription)")
+            #endif
             throw error
         }
 
@@ -226,6 +229,15 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         guard let http = response as? HTTPURLResponse else {
             throw UploadError.uploadFailed(statusCode: 0, attempt: 1)
         }
+
+        #if DEBUG
+        if (200...299).contains(http.statusCode) {
+            print("[ImageUpload] ✓ HTTP \(http.statusCode) — \(url.absoluteString.prefix(120))")
+        } else {
+            let body = String(data: responseData.prefix(200), encoding: .utf8) ?? "<non-UTF8>"
+            print("[ImageUpload] ✗ HTTP \(http.statusCode) — \(url.absoluteString.prefix(120))\n  Body: \(body)")
+        }
+        #endif
 
         guard (200...299).contains(http.statusCode) else {
             throw UploadError.uploadFailed(statusCode: http.statusCode, attempt: 1)

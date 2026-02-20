@@ -29,12 +29,17 @@ struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
     let createdAt: Date
     let score: Double
 
+    // v2: Discovery finite feed metadata
+    let isExhausted: Bool?
+    let itemsRemaining: Int?
+
     enum CodingKeys: String, CodingKey {
         case id
         case userID = "userId"
         case username, authorPhoto
         case imageURL = "imageUrl"
         case imageWidth, imageHeight, likeCount, createdAt, score
+        case isExhausted, itemsRemaining
     }
 
     var asFeedPost: FeedPost {
@@ -51,7 +56,12 @@ struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
             isLiked: false,
             createdAt: createdAt,
             score: score,
-            tags: []
+            tags: [],
+            feedScore: nil,
+            isCaughtUp: nil,
+            friendsRemaining: nil,
+            isExhausted: isExhausted,
+            itemsRemaining: itemsRemaining
         )
     }
 }

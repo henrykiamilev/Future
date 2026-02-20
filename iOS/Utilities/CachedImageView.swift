@@ -52,6 +52,7 @@ struct CachedImageView<Placeholder: View>: View {
     @ViewBuilder let placeholder: () -> Placeholder
 
     @State private var image: UIImage?
+    @State private var failed = false
     @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
@@ -59,6 +60,24 @@ struct CachedImageView<Placeholder: View>: View {
             if let image {
                 Image(uiImage: image)
                     .resizable()
+            } else if failed {
+                placeholder()
+                    .overlay {
+                        Button {
+                            retryLoad()
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 16, weight: .medium))
+                                #if DEBUG
+                                Text("Tap to retry")
+                                    .font(.caption2)
+                                #endif
+                            }
+                            .foregroundColor(Theme.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
             } else {
                 placeholder()
             }
@@ -70,13 +89,21 @@ struct CachedImageView<Placeholder: View>: View {
         }
         .onChange(of: url) { _, _ in
             image = nil
+            failed = false
             loadTask?.cancel()
             loadIfNeeded()
         }
     }
 
+    private func retryLoad() {
+        failed = false
+        image = nil
+        loadTask?.cancel()
+        loadIfNeeded()
+    }
+
     private func loadIfNeeded() {
-        guard let url, image == nil else { return }
+        guard let url, image == nil, !failed else { return }
 
         let key = url.absoluteString
         if let cached = ImageCache.shared.image(for: key) {
@@ -86,8 +113,27 @@ struct CachedImageView<Placeholder: View>: View {
 
         loadTask = Task {
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await URLSession.shared.data(from: url)
                 guard !Task.isCancelled else { return }
+
+                // Validate HTTP status — URLSession.data doesn't throw on 4xx/5xx
+                if let httpResponse = response as? HTTPURLResponse,
+                   !(200...299).contains(httpResponse.statusCode) {
+                    #if DEBUG
+                    print("[CachedImageView] HTTP \(httpResponse.statusCode) for \(url.absoluteString.prefix(120))")
+                    #endif
+                    await MainActor.run { failed = true }
+                    return
+                }
+
+                // Guard against empty responses
+                guard !data.isEmpty else {
+                    #if DEBUG
+                    print("[CachedImageView] Empty data for \(url.absoluteString.prefix(120))")
+                    #endif
+                    await MainActor.run { failed = true }
+                    return
+                }
 
                 let scale = UIScreen.main.scale
                 let size = targetSize
@@ -95,11 +141,23 @@ struct CachedImageView<Placeholder: View>: View {
                     downsample(data: data, to: size, scale: scale)
                 }.value
 
-                guard !Task.isCancelled, let decoded else { return }
-                ImageCache.shared.setImage(decoded, for: key)
-                await MainActor.run { image = decoded }
+                guard !Task.isCancelled else { return }
+
+                if let decoded {
+                    ImageCache.shared.setImage(decoded, for: key)
+                    await MainActor.run { image = decoded }
+                } else {
+                    #if DEBUG
+                    print("[CachedImageView] Decode failed for \(url.absoluteString.prefix(120)) (\(data.count) bytes)")
+                    #endif
+                    await MainActor.run { failed = true }
+                }
             } catch {
-                // Download cancelled or failed — placeholder stays visible
+                guard !Task.isCancelled else { return }
+                #if DEBUG
+                print("[CachedImageView] Failed: \(error.localizedDescription) — \(url.absoluteString.prefix(120))")
+                #endif
+                await MainActor.run { failed = true }
             }
         }
     }

@@ -107,13 +107,19 @@ CREATE TRIGGER post_enforce_max_signatures
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_like_count_increment()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_author_id UUID;
 BEGIN
     UPDATE posts SET like_count = like_count + 1, updated_at = now()
     WHERE id = NEW.post_id;
 
     -- Update user's lifetime total_likes
+    SELECT user_id INTO v_author_id FROM posts WHERE id = NEW.post_id;
     UPDATE users SET total_likes = total_likes + 1, updated_at = now()
-    WHERE id = (SELECT user_id FROM posts WHERE id = NEW.post_id);
+    WHERE id = v_author_id;
+
+    -- Track relationship strength: liker -> post author
+    PERFORM increment_relationship_signal(NEW.user_id, v_author_id, 'like');
 
     RETURN NEW;
 END;
@@ -121,12 +127,18 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION trg_like_count_decrement()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_author_id UUID;
 BEGIN
     UPDATE posts SET like_count = GREATEST(0, like_count - 1), updated_at = now()
     WHERE id = OLD.post_id;
 
+    SELECT user_id INTO v_author_id FROM posts WHERE id = OLD.post_id;
     UPDATE users SET total_likes = GREATEST(0, total_likes - 1), updated_at = now()
-    WHERE id = (SELECT user_id FROM posts WHERE id = OLD.post_id);
+    WHERE id = v_author_id;
+
+    -- Decrement relationship strength: unliker -> post author
+    PERFORM decrement_relationship_signal(OLD.user_id, v_author_id, 'like');
 
     RETURN OLD;
 END;
@@ -165,9 +177,12 @@ BEGIN
         WHERE id = OLD.following_id;
     END IF;
 
+    -- Update mutual follow status for relationship strength
     IF TG_OP = 'DELETE' THEN
+        PERFORM update_mutual_follow_status(OLD.follower_id, OLD.following_id);
         RETURN OLD;
     ELSE
+        PERFORM update_mutual_follow_status(NEW.follower_id, NEW.following_id);
         RETURN NEW;
     END IF;
 END;

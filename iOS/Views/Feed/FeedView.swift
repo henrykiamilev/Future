@@ -19,12 +19,26 @@ struct FeedView: View {
                     .foregroundColor(Theme.textPrimary)
             }
         }
+        .overlay {
+            if viewModel.showSessionReminder {
+                SessionReminderView(
+                    onKeepGoing: { viewModel.dismissSessionReminder() },
+                    onClose: {
+                        viewModel.dismissSessionReminder()
+                        viewModel.stopSessionTracking()
+                        // User chose to close — navigate away handled by parent
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
         .task {
+            viewModel.startSessionTracking()
             await viewModel.loadInitial()
         }
     }
 
-    // MARK: - Segmented Control
+    // MARK: - Segmented Control with Progress
 
     private var segmentedControl: some View {
         HStack(spacing: 0) {
@@ -34,7 +48,7 @@ struct FeedView: View {
                         viewModel.selectedSegment = segment
                     }
                 } label: {
-                    VStack(spacing: Theme.spacingS) {
+                    VStack(spacing: Theme.spacingXS) {
                         Text(segment.rawValue)
                             .font(Theme.headlineFont)
                             .foregroundColor(
@@ -42,6 +56,9 @@ struct FeedView: View {
                                     ? Theme.textPrimary
                                     : Theme.textTertiary
                             )
+
+                        // v2: Progress indicator
+                        progressLabel(for: segment)
 
                         Rectangle()
                             .fill(
@@ -60,6 +77,36 @@ struct FeedView: View {
         .background(Theme.background)
     }
 
+    @ViewBuilder
+    private func progressLabel(for segment: FeedSegment) -> some View {
+        switch segment {
+        case .friends:
+            if viewModel.isFriendsCaughtUp {
+                Text("caught up")
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
+            } else if viewModel.friendsPostsSeen > 0 || viewModel.friendsRemaining > 0 {
+                let total = viewModel.friendsPostsSeen + viewModel.friendsRemaining
+                Text("\(viewModel.friendsPostsSeen) of \(total)")
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
+            } else {
+                Text(" ")
+                    .font(Theme.labelFont)
+            }
+        case .discover:
+            if viewModel.isDiscoveryExhausted {
+                Text("done")
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
+            } else {
+                Text("\(viewModel.discoveryItemsSeen)/15")
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
+            }
+        }
+    }
+
     // MARK: - Feed Content
 
     @ViewBuilder
@@ -73,6 +120,13 @@ struct FeedView: View {
             Spacer()
             errorView(error)
             Spacer()
+        } else if viewModel.selectedSegment == .friends && viewModel.isFriendsCaughtUp && viewModel.posts.isEmpty {
+            CaughtUpView(
+                discoveryRemaining: viewModel.discoveryRemaining,
+                onExplore: { viewModel.selectedSegment = .discover }
+            )
+        } else if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted && viewModel.posts.isEmpty {
+            DiscoveryEndView()
         } else if viewModel.posts.isEmpty {
             Spacer()
             emptyView
@@ -96,6 +150,34 @@ struct FeedView: View {
                     .buttonStyle(.plain)
                     .task {
                         await viewModel.loadMoreIfNeeded(currentPost: post)
+                        viewModel.recordPostSeen(post)
+                    }
+                }
+
+                // v2: Inline caught-up state after last post
+                if viewModel.selectedSegment == .friends && viewModel.isFriendsCaughtUp {
+                    CaughtUpView(
+                        discoveryRemaining: viewModel.discoveryRemaining,
+                        onExplore: { viewModel.selectedSegment = .discover }
+                    )
+                    .frame(height: 400)
+                }
+
+                // v2: Inline discovery end state after last post
+                if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted {
+                    DiscoveryEndView()
+                        .frame(height: 400)
+                }
+
+                // v2: Discovery "Show more" button (explicit, not auto-load)
+                if viewModel.selectedSegment == .discover && !viewModel.isDiscoveryExhausted {
+                    Button {
+                        Task { await viewModel.loadMoreDiscovery() }
+                    } label: {
+                        Text("Show more")
+                            .font(Theme.headlineFont)
+                            .foregroundColor(Theme.accent)
+                            .padding(.vertical, Theme.spacingM)
                     }
                 }
 
@@ -120,7 +202,7 @@ struct FeedView: View {
 
             Text(viewModel.selectedSegment == .friends
                  ? "Follow people to see their posts."
-                 : "Be the first to post today.")
+                 : "Check back later for new discoveries.")
                 .font(Theme.bodyFont)
                 .foregroundColor(Theme.textSecondary)
         }

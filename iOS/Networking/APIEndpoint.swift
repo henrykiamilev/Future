@@ -45,15 +45,16 @@ extension APIEndpoint {
         )
     }
 
-    static func friendsFeed(cursor: Date? = nil, limit: Int = 20) -> APIEndpoint {
-        var cursorString: String?
-        if let cursor {
-            cursorString = ISO8601DateFormatter().string(from: cursor)
-        }
-        return APIEndpoint(
+    /// v2: Friends feed now uses ranked cursor (score, id) like main feed
+    static func friendsFeed(cursorScore: Double? = nil, cursorID: UUID? = nil, limit: Int = 20) -> APIEndpoint {
+        APIEndpoint(
             path: "/rest/v1/rpc/get_friends_feed",
             method: .POST,
-            body: RPCFriendsFeed(p_cursor: cursorString, p_limit: limit)
+            body: RPCFriendsFeedV2(
+                p_cursor_score: cursorScore,
+                p_cursor_id: cursorID?.uuidString,
+                p_limit: limit
+            )
         )
     }
 
@@ -241,11 +242,24 @@ extension APIEndpoint {
         )
     }
 
-    static func explorePosts(limit: Int = 30) -> APIEndpoint {
+    static func explorePosts(limit: Int = 10) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/rpc/get_explore_posts",
             method: .POST,
             body: RPCLimit(p_limit: limit)
+        )
+    }
+}
+
+// MARK: - Consumption Tracking Endpoints
+
+extension APIEndpoint {
+    /// v2: Record post consumption for finite feed tracking
+    static func recordConsumption(postID: UUID, feedType: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/record_post_consumption",
+            method: .POST,
+            body: RPCConsumption(p_post_id: postID.uuidString, p_feed_type: feedType)
         )
     }
 }
@@ -358,9 +372,16 @@ private struct RPCMainFeed: Encodable, Sendable {
     let p_limit: Int
 }
 
-private struct RPCFriendsFeed: Encodable, Sendable {
-    let p_cursor: String?
+/// v2: Friends feed now uses ranked cursor (score, id)
+private struct RPCFriendsFeedV2: Encodable, Sendable {
+    let p_cursor_score: Double?
+    let p_cursor_id: String?
     let p_limit: Int
+}
+
+private struct RPCConsumption: Encodable, Sendable {
+    let p_post_id: String
+    let p_feed_type: String
 }
 
 private struct RPCExposures: Encodable, Sendable {

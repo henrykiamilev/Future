@@ -1,8 +1,9 @@
 import Foundation
+import Combine
 
 enum FeedSegment: String, CaseIterable, Sendable {
     case friends = "Friends"
-    case main = "Main"
+    case discover = "Discover"
 }
 
 @MainActor
@@ -22,15 +23,31 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
+    // MARK: - v2: Finite Feed State
+
+    @Published private(set) var isFriendsCaughtUp = false
+    @Published private(set) var isDiscoveryExhausted = false
+    @Published private(set) var friendsRemaining: Int = 0
+    @Published private(set) var discoveryRemaining: Int = 0
+    @Published private(set) var friendsPostsSeen: Int = 0
+    @Published private(set) var discoveryItemsSeen: Int = 0
+
+    // MARK: - v2: Anti-Doomscroll
+
+    @Published var showSessionReminder = false
+    private var sessionStartTime: Date?
+    private var sessionTimerCancellable: AnyCancellable?
+    private var lastRefreshTime: Date?
+    private let refreshCooldownSeconds: TimeInterval = 30
+
     // MARK: - Pagination State
 
     private var nextCursor: FeedCursor?
     private var hasMore = true
     private var loadTask: Task<Void, Never>?
 
-    // Memory cap: keep at most this many posts in memory.
-    // Older posts are dropped from the front when new pages arrive.
-    private let maxPostsInMemory = 100
+    // Memory cap: reduced from 100 to 50 to discourage long sessions
+    private let maxPostsInMemory = 50
 
     // MARK: - Dependencies
 
@@ -42,6 +59,31 @@ final class FeedViewModel: ObservableObject {
         self.postService = postService
     }
 
+    // MARK: - Session Timer (Anti-Doomscroll)
+
+    func startSessionTracking() {
+        sessionStartTime = Date()
+        sessionTimerCancellable = Timer.publish(every: 60, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self, let start = self.sessionStartTime else { return }
+                let elapsed = Date().timeIntervalSince(start)
+                if elapsed >= 600 && !self.showSessionReminder {
+                    self.showSessionReminder = true
+                }
+            }
+    }
+
+    func dismissSessionReminder() {
+        showSessionReminder = false
+        sessionStartTime = Date()  // Reset — next reminder in 10 min
+    }
+
+    func stopSessionTracking() {
+        sessionTimerCancellable?.cancel()
+        sessionTimerCancellable = nil
+    }
+
     // MARK: - Public Actions
 
     func loadInitial() async {
@@ -50,11 +92,26 @@ final class FeedViewModel: ObservableObject {
     }
 
     func refresh() async {
+        // Pull-to-refresh cooldown: 30 seconds
+        if let last = lastRefreshTime,
+           Date().timeIntervalSince(last) < refreshCooldownSeconds {
+            return
+        }
+
         loadTask?.cancel()
         isLoading = true
         error = nil
         nextCursor = nil
         hasMore = true
+
+        // Reset finite feed state on refresh
+        if selectedSegment == .friends {
+            isFriendsCaughtUp = false
+            friendsPostsSeen = 0
+        } else {
+            isDiscoveryExhausted = false
+            discoveryItemsSeen = 0
+        }
 
         loadTask = Task {
             do {
@@ -63,6 +120,7 @@ final class FeedViewModel: ObservableObject {
                 posts = page.posts
                 nextCursor = page.nextCursor
                 hasMore = page.hasMore
+                updateFiniteFeedState(from: page)
             } catch is CancellationError {
                 return
             } catch {
@@ -71,13 +129,21 @@ final class FeedViewModel: ObservableObject {
             isLoading = false
         }
         await loadTask?.value
+        lastRefreshTime = Date()
     }
 
     func loadMoreIfNeeded(currentPost: FeedPost) async {
+        // Block loading more if feed has ended
+        if selectedSegment == .friends && isFriendsCaughtUp { return }
+        if selectedSegment == .discover && isDiscoveryExhausted { return }
+
         guard hasMore,
               !isLoadingMore,
               let last = posts.last,
               currentPost.id == last.id else { return }
+
+        // Discovery uses explicit "Show more" button, not auto-load
+        if selectedSegment == .discover { return }
 
         isLoadingMore = true
 
@@ -86,6 +152,7 @@ final class FeedViewModel: ObservableObject {
             posts.append(contentsOf: page.posts)
             nextCursor = page.nextCursor
             hasMore = page.hasMore
+            updateFiniteFeedState(from: page)
 
             // Memory cap: drop oldest posts if we exceed the limit
             if posts.count > maxPostsInMemory {
@@ -94,6 +161,25 @@ final class FeedViewModel: ObservableObject {
             }
         } catch {
             // Silently fail on pagination — user can scroll again
+        }
+
+        isLoadingMore = false
+    }
+
+    /// v2: Discovery uses explicit "Show more" button instead of auto-load
+    func loadMoreDiscovery() async {
+        guard selectedSegment == .discover,
+              !isDiscoveryExhausted,
+              !isLoadingMore else { return }
+
+        isLoadingMore = true
+
+        do {
+            let page = try await feedService.fetchDiscovery(limit: 10)
+            posts.append(contentsOf: page.posts)
+            updateFiniteFeedState(from: page)
+        } catch {
+            // Silently fail
         }
 
         isLoadingMore = false
@@ -127,14 +213,40 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
+    /// v2: Record that a post was seen (fire-and-forget consumption tracking)
+    func recordPostSeen(_ post: FeedPost) {
+        let feedType = selectedSegment == .friends ? "friends" : "discovery"
+        let postID = post.id
+        let service = feedService
+        Task.detached {
+            try? await service.recordConsumption(postID: postID, feedType: feedType)
+        }
+    }
+
     // MARK: - Private
 
     private func fetchPage(cursor: FeedCursor?) async throws -> FeedPage {
         switch selectedSegment {
-        case .main:
-            return try await feedService.fetchMainFeed(cursor: cursor, limit: 20)
+        case .discover:
+            return try await feedService.fetchDiscovery(limit: 10)
         case .friends:
             return try await feedService.fetchFriendsFeed(cursor: cursor, limit: 20)
+        }
+    }
+
+    private func updateFiniteFeedState(from page: FeedPage) {
+        if selectedSegment == .friends {
+            if page.isCaughtUp || page.posts.isEmpty {
+                isFriendsCaughtUp = true
+            }
+            friendsRemaining = page.friendsRemaining
+            friendsPostsSeen += page.posts.count
+        } else {
+            if page.isExhausted || page.posts.isEmpty {
+                isDiscoveryExhausted = true
+            }
+            discoveryRemaining = page.itemsRemaining
+            discoveryItemsSeen += page.posts.count
         }
     }
 }

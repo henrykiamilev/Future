@@ -74,6 +74,7 @@ enum SupabaseConfig {
     // The anon key is safe to embed client-side — RLS protects data.
     static let projectURL = URL(string: "https://rylyzntjznnwmysszbzq.supabase.co")!
     static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5bHl6bnRqem5ud215c3N6YnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NzIyNjIsImV4cCI6MjA4NjM0ODI2Mn0.IX-4kN7OAdrid-Frg-E3iV7wZzZD3hWhWq7zfEJ2Xn8"
+    static let storageBucket = "posts"
 }
 
 // MARK: - App-Wide Dependency Container
@@ -132,7 +133,8 @@ final class AppState: ObservableObject {
         self.imageUploadService = ImageUploadService(
             baseURL: SupabaseConfig.projectURL,
             anonKey: SupabaseConfig.anonKey,
-            tokenProvider: token
+            tokenProvider: token,
+            bucket: SupabaseConfig.storageBucket
         )
         self.searchService = SearchService(client: client)
         self.commentService = CommentService(client: client)

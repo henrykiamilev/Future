@@ -16,6 +16,15 @@ struct FeedPost: Codable, Identifiable, Equatable, Hashable, Sendable {
     let score: Double?
     let tags: [Tag]
 
+    // v2: Ranked friends feed score + finite feed metadata
+    let feedScore: Double?
+    let isCaughtUp: Bool?
+    let friendsRemaining: Int?
+
+    // v2: Discovery finite feed metadata
+    let isExhausted: Bool?
+    let itemsRemaining: Int?
+
     // Equatable auto-synthesized — compares all properties so SwiftUI
     // re-renders cells when isLiked or likeCount changes.
 
@@ -33,6 +42,11 @@ struct FeedPost: Codable, Identifiable, Equatable, Hashable, Sendable {
         case createdAt
         case score
         case tags
+        case feedScore
+        case isCaughtUp
+        case friendsRemaining
+        case isExhausted
+        case itemsRemaining
     }
 }
 
