@@ -191,7 +191,7 @@ final class AppState: ObservableObject {
 
     func makeProfileViewModel(userID: UUID) -> ProfileViewModel {
         if let vm = cachedProfileVMs[userID] { return vm }
-        let vm = ProfileViewModel(userID: userID, profileService: profileService, postService: postService)
+        let vm = ProfileViewModel(userID: userID, currentUserID: authService.currentUserID, profileService: profileService, postService: postService)
         // Cap cache at 20 entries to prevent unbounded memory growth
         if cachedProfileVMs.count >= 20 {
             cachedProfileVMs.removeAll()

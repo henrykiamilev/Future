@@ -23,9 +23,11 @@ final class ProfileViewModel: ObservableObject {
     private let profileService: ProfileServiceProtocol
     private let postService: PostServiceProtocol
     let userID: UUID
+    private let currentUserID: UUID?
 
-    init(userID: UUID, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
+    init(userID: UUID, currentUserID: UUID? = nil, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
         self.userID = userID
+        self.currentUserID = currentUserID
         self.profileService = profileService
         self.postService = postService
     }
@@ -64,13 +66,13 @@ final class ProfileViewModel: ObservableObject {
     // MARK: - Follow / Unfollow
 
     func toggleFollow() async {
-        guard let profile else { return }
+        guard let profile, let myID = currentUserID else { return }
 
         do {
             if profile.isFollowing {
-                try await profileService.unfollow(userID: userID)
+                try await profileService.unfollow(userID: userID, currentUserID: myID)
             } else {
-                try await profileService.follow(userID: userID)
+                try await profileService.follow(userID: userID, currentUserID: myID)
             }
             // Reload to get updated state
             await load()

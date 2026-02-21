@@ -13,33 +13,48 @@ struct ArchiveView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Group {
                 if viewModel.isLoadingArchive && viewModel.archivePosts.isEmpty {
-                    ProgressView()
-                        .tint(Theme.textTertiary)
-                        .padding(.top, Theme.spacingXXL)
-                } else if viewModel.archivePosts.isEmpty {
-                    Text("Your archive is empty")
-                        .font(Theme.bodyFont)
-                        .foregroundColor(Theme.textSecondary)
-                        .padding(.top, Theme.spacingXXL)
-                } else {
-                    LazyVGrid(columns: columns, spacing: 2) {
-                        ForEach(viewModel.archivePosts) { post in
-                            archiveTile(post)
-                                .task {
-                                    if post.id == viewModel.archivePosts.last?.id {
-                                        await viewModel.loadMoreArchive()
-                                    }
-                                }
-                        }
-                    }
-                    .padding(.horizontal, 1)
-
-                    if viewModel.isLoadingArchive {
+                    VStack {
+                        Spacer()
                         ProgressView()
                             .tint(Theme.textTertiary)
-                            .padding(.vertical, Theme.spacingL)
+                        Spacer()
+                    }
+                } else if viewModel.archivePosts.isEmpty {
+                    VStack {
+                        Spacer()
+                        Image(systemName: "archivebox")
+                            .font(.system(size: 40))
+                            .foregroundColor(Theme.textTertiary)
+                            .padding(.bottom, Theme.spacingS)
+                        Text("Your archive is empty")
+                            .font(Theme.bodyFont)
+                            .foregroundColor(Theme.textSecondary)
+                        Text("Posts you've created will appear here")
+                            .font(Theme.captionFont)
+                            .foregroundColor(Theme.textTertiary)
+                        Spacer()
+                    }
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 2) {
+                            ForEach(viewModel.archivePosts) { post in
+                                archiveTile(post)
+                                    .task {
+                                        if post.id == viewModel.archivePosts.last?.id {
+                                            await viewModel.loadMoreArchive()
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.horizontal, 1)
+
+                        if viewModel.isLoadingArchive {
+                            ProgressView()
+                                .tint(Theme.textTertiary)
+                                .padding(.vertical, Theme.spacingL)
+                        }
                     }
                 }
             }
@@ -54,6 +69,7 @@ struct ArchiveView: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
     }
 
     private func archiveTile(_ post: ArchivePost) -> some View {

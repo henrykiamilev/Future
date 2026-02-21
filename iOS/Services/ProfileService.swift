@@ -4,8 +4,8 @@ protocol ProfileServiceProtocol: Sendable {
     func fetchProfile(userID: UUID) async throws -> UserProfile
     func fetchArchive(cursor: Date?, limit: Int) async throws -> ArchivePage
     func updateProfile(_ update: ProfileUpdate) async throws
-    func follow(userID: UUID) async throws
-    func unfollow(userID: UUID) async throws
+    func follow(userID: UUID, currentUserID: UUID) async throws
+    func unfollow(userID: UUID, currentUserID: UUID) async throws
     func updateVisibility(_ visibility: User.AccountVisibility) async throws
     func updateCommentsEnabled(_ enabled: Bool) async throws
     func updateProfilePhoto(url: String) async throws
@@ -50,12 +50,12 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
         try await client.requestVoid(.updateProfile(update))
     }
 
-    func follow(userID: UUID) async throws {
-        try await client.requestVoid(.follow(userID: userID))
+    func follow(userID: UUID, currentUserID: UUID) async throws {
+        try await client.requestVoid(.follow(userID: userID, currentUserID: currentUserID))
     }
 
-    func unfollow(userID: UUID) async throws {
-        try await client.requestVoid(.unfollow(userID: userID))
+    func unfollow(userID: UUID, currentUserID: UUID) async throws {
+        try await client.requestVoid(.unfollow(userID: userID, currentUserID: currentUserID))
     }
 
     func updateVisibility(_ visibility: User.AccountVisibility) async throws {

@@ -90,11 +90,13 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
             do {
                 try self.configureSession()
                 self.captureSession.startRunning()
+                print("[Camera] Session started — running: \(self.captureSession.isRunning)")
 
                 DispatchQueue.main.async {
                     self.isSessionRunning = self.captureSession.isRunning
                 }
             } catch {
+                print("[Camera] Session start FAILED: \(error)")
                 DispatchQueue.main.async {
                     self.isSessionRunning = false
                 }
@@ -119,13 +121,16 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     /// Captures a single photo. Returns a correctly-oriented UIImage.
     /// Throws `CameraError` on failure.
     func capturePhoto() async throws -> UIImage {
+        print("[Camera] capturePhoto() called — session running: \(captureSession.isRunning)")
         guard captureSession.isRunning else {
+            print("[Camera] ERROR: session not running, aborting capture")
             throw CameraError.sessionNotRunning
         }
 
         return try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [weak self] in
                 guard let self else {
+                    print("[Camera] ERROR: self deallocated during capture")
                     continuation.resume(throwing: CameraError.sessionNotRunning)
                     return
                 }
@@ -137,6 +142,9 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
                 // Connection orientation must match device orientation for correct EXIF
                 if let connection = self.photoOutput.connection(with: .video) {
                     connection.videoRotationAngle = self.currentVideoRotationAngle()
+                    print("[Camera] Capturing photo — flash: \(settings.flashMode.rawValue), connection active: \(connection.isActive)")
+                } else {
+                    print("[Camera] WARNING: no video connection on photoOutput")
                 }
 
                 self.photoOutput.capturePhoto(with: settings, delegate: self)
@@ -292,9 +300,12 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
             self.activeContinuation = nil
 
             if let error {
+                print("[Camera] Capture delegate error: \(error.localizedDescription)")
                 continuation?.resume(throwing: CameraError.captureFailed(underlying: error.localizedDescription))
                 return
             }
+
+            print("[Camera] Capture delegate success — processing photo")
 
             guard let data = photo.fileDataRepresentation() else {
                 continuation?.resume(throwing: CameraError.captureFailed(underlying: "No image data"))

@@ -88,12 +88,15 @@ final class PostViewModel: ObservableObject {
     // MARK: - Capture Flow
 
     func capturePhoto() {
+        print("[PostVM] capturePhoto() called — camera session running: \(camera.isSessionRunning)")
         Task {
             do {
                 let image = try await camera.capturePhoto()
+                print("[PostVM] Photo captured successfully — size: \(image.size)")
                 capturedImage = image
                 state = .preview
             } catch {
+                print("[PostVM] Photo capture FAILED: \(error)")
                 state = .error(error.localizedDescription)
             }
         }

@@ -178,19 +178,22 @@ extension APIEndpoint {
 // MARK: - Follow Endpoints (Supabase PostgREST)
 
 extension APIEndpoint {
-    static func follow(userID: UUID) -> APIEndpoint {
+    static func follow(userID: UUID, currentUserID: UUID) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/follows",
             method: .POST,
-            body: RPCFollow(following_id: userID.uuidString)
+            body: RPCFollow(follower_id: currentUserID.uuidString, following_id: userID.uuidString)
         )
     }
 
-    static func unfollow(userID: UUID) -> APIEndpoint {
+    static func unfollow(userID: UUID, currentUserID: UUID) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/follows",
             method: .DELETE,
-            queryItems: [.init(name: "following_id", value: "eq.\(userID.uuidString)")]
+            queryItems: [
+                .init(name: "follower_id", value: "eq.\(currentUserID.uuidString)"),
+                .init(name: "following_id", value: "eq.\(userID.uuidString)")
+            ]
         )
     }
 }
@@ -424,6 +427,7 @@ private struct RPCArchive: Encodable, Sendable {
 }
 
 private struct RPCFollow: Encodable, Sendable {
+    let follower_id: String
     let following_id: String
 }
 
