@@ -58,16 +58,19 @@ struct FeedPostCard: View {
         let aspect = CGFloat(post.imageHeight) / max(1, CGFloat(post.imageWidth))
         let screenWidth = UIScreen.main.bounds.width
 
-        return CachedImageView(
-            url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
-        ) {
-            Rectangle()
-                .fill(Theme.background)
-                .overlay { ProgressView().tint(Theme.textTertiary) }
+        return NavigationLink(value: post) {
+            CachedImageView(
+                url: SupabaseConfig.storageURL(for: post.imageURL),
+                targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
+            ) {
+                Rectangle()
+                    .fill(Theme.background)
+                    .overlay { ProgressView().tint(Theme.textTertiary) }
+            }
+            .aspectRatio(1 / aspect, contentMode: .fit)
+            .clipped()
         }
-        .aspectRatio(1 / aspect, contentMode: .fit)
-        .clipped()
+        .buttonStyle(.plain)
     }
 
     // MARK: - Actions Row

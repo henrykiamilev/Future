@@ -87,6 +87,20 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
         sessionQueue.async { [weak self] in
             guard let self else { return }
 
+            // Register for session interruption and error notifications
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(self.sessionWasInterrupted),
+                name: .AVCaptureSessionWasInterrupted,
+                object: self.captureSession
+            )
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(self.sessionRuntimeError),
+                name: .AVCaptureSessionRuntimeError,
+                object: self.captureSession
+            )
+
             do {
                 try self.configureSession()
                 self.captureSession.startRunning()
@@ -100,6 +114,30 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
                 DispatchQueue.main.async {
                     self.isSessionRunning = false
                 }
+            }
+        }
+    }
+
+    @objc private func sessionWasInterrupted(_ notification: Notification) {
+        print("[Camera] Session interrupted")
+        DispatchQueue.main.async { [weak self] in
+            self?.isSessionRunning = false
+        }
+    }
+
+    @objc private func sessionRuntimeError(_ notification: Notification) {
+        if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError {
+            print("[Camera] Runtime error: \(error.localizedDescription) — attempting restart")
+        } else {
+            print("[Camera] Runtime error — attempting restart")
+        }
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.captureSession.startRunning()
+            let running = self.captureSession.isRunning
+            print("[Camera] Restart result — running: \(running)")
+            DispatchQueue.main.async {
+                self.isSessionRunning = running
             }
         }
     }

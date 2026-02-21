@@ -15,7 +15,9 @@ struct CuratedApp: App {
                     if showOnboarding {
                         OnboardingView {
                             Task {
-                                try? await appState.profileService.completeOnboarding()
+                                if let uid = appState.authService.currentUserID {
+                                    try? await appState.profileService.completeOnboarding(userID: uid)
+                                }
                             }
                             UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
                             withAnimation { showOnboarding = false }
@@ -191,7 +193,8 @@ final class AppState: ObservableObject {
 
     func makeProfileViewModel(userID: UUID) -> ProfileViewModel {
         if let vm = cachedProfileVMs[userID] { return vm }
-        let vm = ProfileViewModel(userID: userID, currentUserID: authService.currentUserID, profileService: profileService, postService: postService)
+        let auth = authService
+        let vm = ProfileViewModel(userID: userID, currentUserIDProvider: { auth.currentUserID }, profileService: profileService, postService: postService)
         // Cap cache at 20 entries to prevent unbounded memory growth
         if cachedProfileVMs.count >= 20 {
             cachedProfileVMs.removeAll()
@@ -202,10 +205,14 @@ final class AppState: ObservableObject {
 
     func makeSettingsViewModel() -> SettingsViewModel {
         if let vm = cachedSettingsVM { return vm }
+        guard let uid = authService.currentUserID else {
+            fatalError("makeSettingsViewModel called without authenticated user")
+        }
         let vm = SettingsViewModel(
             profileService: profileService,
             authService: authService,
-            imageUploadService: imageUploadService
+            imageUploadService: imageUploadService,
+            currentUserID: uid
         )
         cachedSettingsVM = vm
         return vm

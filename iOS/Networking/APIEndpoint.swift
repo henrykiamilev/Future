@@ -149,9 +149,14 @@ extension APIEndpoint {
         )
     }
 
-    static func updateProfile(_ update: ProfileUpdate) -> APIEndpoint {
+    static func updateProfile(_ update: ProfileUpdate, userID: UUID) -> APIEndpoint {
         // Direct table update via PostgREST — RLS ensures own-row only
-        APIEndpoint(path: "/rest/v1/users", method: .PATCH, body: update)
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
+            body: update
+        )
     }
 }
 
@@ -201,8 +206,13 @@ extension APIEndpoint {
 // MARK: - Settings Endpoints
 
 extension APIEndpoint {
-    static func updateVisibility(_ visibility: User.AccountVisibility) -> APIEndpoint {
-        APIEndpoint(path: "/rest/v1/users", method: .PATCH, body: VisibilityUpdate(visibility: visibility))
+    static func updateVisibility(_ visibility: User.AccountVisibility, userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
+            body: VisibilityUpdate(visibility: visibility)
+        )
     }
 
     static var deleteAccount: APIEndpoint {
@@ -326,18 +336,20 @@ extension APIEndpoint {
 // MARK: - Settings Endpoints (extended)
 
 extension APIEndpoint {
-    static func updateCommentsEnabled(_ enabled: Bool) -> APIEndpoint {
+    static func updateCommentsEnabled(_ enabled: Bool, userID: UUID) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/users",
             method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
             body: CommentsEnabledUpdate(comments_enabled: enabled)
         )
     }
 
-    static func updateProfilePhoto(url: String) -> APIEndpoint {
+    static func updateProfilePhoto(url: String, userID: UUID) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/users",
             method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
             body: ProfilePhotoUpdate(profile_photo_url: url)
         )
     }
@@ -358,10 +370,11 @@ extension APIEndpoint {
 // MARK: - Onboarding Endpoints
 
 extension APIEndpoint {
-    static var completeOnboarding: APIEndpoint {
+    static func completeOnboarding(userID: UUID) -> APIEndpoint {
         APIEndpoint(
             path: "/rest/v1/users",
             method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
             body: OnboardingComplete(onboardingCompletedAt: Date())
         )
     }

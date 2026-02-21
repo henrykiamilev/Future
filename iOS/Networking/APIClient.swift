@@ -67,7 +67,12 @@ final class APIClient: APIClientProtocol, Sendable {
     }
 
     func requestVoid(_ endpoint: APIEndpoint) async throws {
-        let _ = try await execute(endpoint)
+        let (data, _) = try await execute(endpoint)
+        #if DEBUG
+        if let raw = String(data: data, encoding: .utf8), !raw.isEmpty, raw != "[]", raw != "" {
+            print("[APIClient] requestVoid \(endpoint.method.rawValue) \(endpoint.path): \(raw.prefix(200))")
+        }
+        #endif
     }
 
     func upload(data: Data, toPresignedURL url: URL, contentType: String) async throws {

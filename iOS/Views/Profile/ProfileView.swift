@@ -256,12 +256,11 @@ struct ProfileView: View {
     }
 
     private var emptySignaturePlaceholder: some View {
-        HStack(spacing: Theme.spacingS) {
-            ForEach(0..<3, id: \.self) { _ in
-                emptyTile(size: signatureTileSize)
-            }
-        }
-        .padding(.horizontal, Theme.spacingL)
+        Text("No signature posts yet")
+            .font(Theme.captionFont)
+            .foregroundColor(Theme.textTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.spacingL)
     }
 
     // MARK: - Live Section
@@ -306,12 +305,11 @@ struct ProfileView: View {
     }
 
     private var emptyLivePlaceholder: some View {
-        HStack(spacing: Theme.spacingS) {
-            ForEach(0..<3, id: \.self) { _ in
-                emptyTile(size: liveTileSize)
-            }
-        }
-        .padding(.horizontal, Theme.spacingL)
+        Text("No live posts")
+            .font(Theme.captionFont)
+            .foregroundColor(Theme.textTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.spacingL)
     }
 
     // MARK: - Archive Button

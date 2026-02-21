@@ -23,13 +23,20 @@ final class ProfileViewModel: ObservableObject {
     private let profileService: ProfileServiceProtocol
     private let postService: PostServiceProtocol
     let userID: UUID
-    private let currentUserID: UUID?
+    /// Dynamic provider — always reads the latest currentUserID from the auth service,
+    /// avoiding stale nil values from cached ViewModels.
+    private let currentUserIDProvider: () -> UUID?
 
-    init(userID: UUID, currentUserID: UUID? = nil, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
+    init(userID: UUID, currentUserIDProvider: @escaping () -> UUID?, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
         self.userID = userID
-        self.currentUserID = currentUserID
+        self.currentUserIDProvider = currentUserIDProvider
         self.profileService = profileService
         self.postService = postService
+    }
+
+    /// Convenience init for backward compatibility (tests, previews)
+    convenience init(userID: UUID, currentUserID: UUID? = nil, profileService: ProfileServiceProtocol, postService: PostServiceProtocol) {
+        self.init(userID: userID, currentUserIDProvider: { currentUserID }, profileService: profileService, postService: postService)
     }
 
     // MARK: - Convenience Accessors
@@ -66,7 +73,15 @@ final class ProfileViewModel: ObservableObject {
     // MARK: - Follow / Unfollow
 
     func toggleFollow() async {
-        guard let profile, let myID = currentUserID else { return }
+        guard let profile else { return }
+
+        guard let myID = currentUserIDProvider() else {
+            self.error = "Not signed in. Please restart the app."
+            print("[ProfileVM] toggleFollow FAILED: currentUserID is nil")
+            return
+        }
+
+        print("[ProfileVM] toggleFollow: isFollowing=\(profile.isFollowing), myID=\(myID), targetID=\(userID)")
 
         do {
             if profile.isFollowing {
@@ -77,6 +92,7 @@ final class ProfileViewModel: ObservableObject {
             // Reload to get updated state
             await load()
         } catch {
+            print("[ProfileVM] toggleFollow ERROR: \(error)")
             self.error = error.localizedDescription
         }
     }

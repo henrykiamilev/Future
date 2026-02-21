@@ -24,15 +24,18 @@ final class SettingsViewModel: ObservableObject {
     private let profileService: ProfileServiceProtocol
     private let authService: AuthServiceProtocol
     private let imageUploadService: ImageUploadServiceProtocol
+    private let currentUserID: UUID
 
     init(
         profileService: ProfileServiceProtocol,
         authService: AuthServiceProtocol,
-        imageUploadService: ImageUploadServiceProtocol
+        imageUploadService: ImageUploadServiceProtocol,
+        currentUserID: UUID
     ) {
         self.profileService = profileService
         self.authService = authService
         self.imageUploadService = imageUploadService
+        self.currentUserID = currentUserID
     }
 
     // MARK: - Load from Profile
@@ -87,7 +90,7 @@ final class SettingsViewModel: ObservableObject {
                 instagramHandle: trimmedIG.isEmpty ? nil : trimmedIG,
                 snapchatHandle: trimmedSnap.isEmpty ? nil : trimmedSnap
             )
-            try await profileService.updateProfile(update)
+            try await profileService.updateProfile(update, userID: currentUserID)
         } catch {
             self.error = error.localizedDescription
         }
@@ -102,7 +105,7 @@ final class SettingsViewModel: ObservableObject {
         isSaving = true
 
         do {
-            try await profileService.updateVisibility(newVisibility)
+            try await profileService.updateVisibility(newVisibility, userID: currentUserID)
             visibility = newVisibility
         } catch {
             self.error = error.localizedDescription
@@ -118,7 +121,7 @@ final class SettingsViewModel: ObservableObject {
         isSaving = true
 
         do {
-            try await profileService.updateCommentsEnabled(newValue)
+            try await profileService.updateCommentsEnabled(newValue, userID: currentUserID)
             commentsEnabled = newValue
         } catch {
             self.error = error.localizedDescription
@@ -134,7 +137,7 @@ final class SettingsViewModel: ObservableObject {
 
         do {
             let uploaded = try await imageUploadService.upload(image: image, onProgress: { _ in })
-            try await profileService.updateProfilePhoto(url: uploaded.url)
+            try await profileService.updateProfilePhoto(url: uploaded.url, userID: currentUserID)
             profilePhotoURL = uploaded.url
         } catch {
             self.error = error.localizedDescription

@@ -89,6 +89,11 @@ final class PostViewModel: ObservableObject {
 
     func capturePhoto() {
         print("[PostVM] capturePhoto() called — camera session running: \(camera.isSessionRunning)")
+        guard camera.isSessionRunning else {
+            print("[PostVM] Camera session not running — showing error")
+            state = .error("Camera is not ready. Try switching tabs and coming back.")
+            return
+        }
         Task {
             do {
                 let image = try await camera.capturePhoto()

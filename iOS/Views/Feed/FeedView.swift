@@ -140,14 +140,11 @@ struct FeedView: View {
         ScrollView {
             LazyVStack(spacing: Theme.spacingXL) {
                 ForEach(viewModel.posts) { post in
-                    NavigationLink(value: post) {
-                        FeedPostCard(
-                            post: post,
-                            onLikeTapped: { Task { await viewModel.toggleLike(post: post) } },
-                            onAuthorTapped: { /* Navigate to profile */ }
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    FeedPostCard(
+                        post: post,
+                        onLikeTapped: { Task { await viewModel.toggleLike(post: post) } },
+                        onAuthorTapped: { /* Navigate to profile */ }
+                    )
                     .task {
                         await viewModel.loadMoreIfNeeded(currentPost: post)
                         viewModel.recordPostSeen(post)

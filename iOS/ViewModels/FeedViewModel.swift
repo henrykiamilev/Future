@@ -124,6 +124,7 @@ final class FeedViewModel: ObservableObject {
             } catch is CancellationError {
                 return
             } catch {
+                print("[FeedVM] Feed load error (\(self.selectedSegment)): \(error)")
                 self.error = error.localizedDescription
             }
             isLoading = false
@@ -160,7 +161,7 @@ final class FeedViewModel: ObservableObject {
                 posts.removeFirst(overflow)
             }
         } catch {
-            // Silently fail on pagination — user can scroll again
+            print("[FeedVM] Load more error: \(error)")
         }
 
         isLoadingMore = false
@@ -179,7 +180,7 @@ final class FeedViewModel: ObservableObject {
             posts.append(contentsOf: page.posts)
             updateFiniteFeedState(from: page)
         } catch {
-            // Silently fail
+            print("[FeedVM] Discovery load more error: \(error)")
         }
 
         isLoadingMore = false

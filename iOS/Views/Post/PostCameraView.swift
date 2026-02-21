@@ -132,7 +132,16 @@ struct PostCameraView: View {
             }
             .disabled(!viewModel.camera.isSessionRunning)
             .opacity(viewModel.camera.isSessionRunning ? 1.0 : 0.4)
-            .padding(.bottom, Theme.spacingXL)
+            .padding(.bottom, viewModel.camera.isSessionRunning ? Theme.spacingXL : Theme.spacingS)
+
+            if !viewModel.camera.isSessionRunning {
+                Text("Camera starting\u{2026} Try switching tabs if this persists.")
+                    .font(Theme.captionFont)
+                    .foregroundColor(Theme.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.spacingL)
+                    .padding(.bottom, Theme.spacingL)
+            }
         }
     }
 
