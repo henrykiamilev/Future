@@ -161,25 +161,29 @@ BEGIN
     TRUNCATE _page_authors;
 
     INSERT INTO _page_authors (author_id)
-    SELECT DISTINCT fs.author_id
-    FROM public.feed_scores fs
-    LEFT JOIN public.follows vf ON vf.following_id = fs.author_id
-        AND vf.follower_id = v_viewer_id AND vf.is_approved = TRUE
-    LEFT JOIN public.feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
-    WHERE fs.author_id NOT IN (
-        SELECT b.blocked_id FROM public.blocks b WHERE b.blocker_id = v_viewer_id
-        UNION ALL
-        SELECT b.blocker_id FROM public.blocks b WHERE b.blocked_id = v_viewer_id
-    )
-    AND CASE WHEN fe.window_start IS NOT NULL AND fe.window_start > now() - INTERVAL '24 hours'
-        THEN COALESCE(fe.exposure_count, 0) ELSE 0 END < v_max_author_exposure
-    AND (
-        p_cursor_score IS NULL
-        OR (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) < p_cursor_score
-        OR ((fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) = p_cursor_score AND fs.post_id < p_cursor_id)
-    )
-    ORDER BY (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) DESC, fs.post_id DESC
-    LIMIT p_limit;
+    SELECT DISTINCT sub.author_id FROM (
+        SELECT fs.author_id,
+               fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END) AS final_score,
+               fs.post_id
+        FROM public.feed_scores fs
+        LEFT JOIN public.follows vf ON vf.following_id = fs.author_id
+            AND vf.follower_id = v_viewer_id AND vf.is_approved = TRUE
+        LEFT JOIN public.feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
+        WHERE fs.author_id NOT IN (
+            SELECT b.blocked_id FROM public.blocks b WHERE b.blocker_id = v_viewer_id
+            UNION ALL
+            SELECT b.blocker_id FROM public.blocks b WHERE b.blocked_id = v_viewer_id
+        )
+        AND CASE WHEN fe.window_start IS NOT NULL AND fe.window_start > now() - INTERVAL '24 hours'
+            THEN COALESCE(fe.exposure_count, 0) ELSE 0 END < v_max_author_exposure
+        AND (
+            p_cursor_score IS NULL
+            OR (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) < p_cursor_score
+            OR ((fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) = p_cursor_score AND fs.post_id < p_cursor_id)
+        )
+        ORDER BY (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) DESC, fs.post_id DESC
+        LIMIT p_limit
+    ) sub;
 
     -- ──────────────────────────────────────────────────────────────────
     -- STEP 1: Query the feed (CTE chain)
