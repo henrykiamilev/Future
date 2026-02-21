@@ -274,20 +274,23 @@ BEGIN
     -- Bounded: only inserts for authors in this page (≤ p_limit rows)
     -- Author-level dedup: PK is (viewer_id, author_id)
     -- Rolling window: resets counter if window_start > 24h ago
-    INSERT INTO public.feed_exposures (viewer_id, author_id, exposure_count, window_start)
-    SELECT v_viewer_id, pa.author_id, 1, now()
-    FROM _page_authors pa
-    ON CONFLICT (viewer_id, author_id) DO UPDATE SET
-        exposure_count = CASE
-            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
-            THEN public.feed_exposures.exposure_count + 1
-            ELSE 1
-        END,
-        window_start = CASE
-            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
-            THEN public.feed_exposures.window_start
-            ELSE now()
-        END;
+    -- Guard: skip when no authenticated viewer (e.g. SQL Editor smoke test)
+    IF v_viewer_id IS NOT NULL THEN
+        INSERT INTO public.feed_exposures (viewer_id, author_id, exposure_count, window_start)
+        SELECT v_viewer_id, pa.author_id, 1, now()
+        FROM _page_authors pa
+        ON CONFLICT (viewer_id, author_id) DO UPDATE SET
+            exposure_count = CASE
+                WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+                THEN public.feed_exposures.exposure_count + 1
+                ELSE 1
+            END,
+            window_start = CASE
+                WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+                THEN public.feed_exposures.window_start
+                ELSE now()
+            END;
+    END IF;
 END;
 $$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = public, pg_temp;
