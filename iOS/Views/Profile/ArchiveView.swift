@@ -77,11 +77,10 @@ struct ArchiveView: View {
 
         return CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: size, height: size)
+            targetSize: CGSize(width: size * 2, height: size * 2)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .scaledToFill()
         .frame(width: size, height: size)
         .clipped()
         .overlay(alignment: .topTrailing) {

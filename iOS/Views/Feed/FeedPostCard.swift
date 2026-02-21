@@ -23,10 +23,15 @@ struct FeedPostCard: View {
             HStack(spacing: Theme.spacingS) {
                 CachedImageView(
                     url: SupabaseConfig.storageURL(for: post.authorPhoto ?? ""),
-                    targetSize: CGSize(width: 32, height: 32)
+                    targetSize: CGSize(width: 64, height: 64)
                 ) {
                     Circle()
                         .fill(Theme.separator)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.textTertiary)
+                        }
                 }
                 .frame(width: 32, height: 32)
                 .clipShape(Circle())
@@ -61,7 +66,6 @@ struct FeedPostCard: View {
                 .fill(Theme.background)
                 .overlay { ProgressView().tint(Theme.textTertiary) }
         }
-        .scaledToFill()
         .aspectRatio(1 / aspect, contentMode: .fit)
         .clipped()
     }

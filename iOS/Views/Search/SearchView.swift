@@ -190,18 +190,23 @@ struct SearchView: View {
         VStack(spacing: Theme.spacingS) {
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
-                targetSize: CGSize(width: 64, height: 64)
+                targetSize: CGSize(width: 128, height: 128)
             ) {
                 Circle()
                     .fill(Theme.separator)
                     .overlay {
                         Image(systemName: "person.fill")
-                            .font(.system(size: 20))
+                            .font(.system(size: 22))
                             .foregroundColor(Theme.textTertiary)
                     }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: 68, height: 68)
             .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(Color.white, lineWidth: 1.5)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
 
             Text(user.username)
                 .font(Theme.captionFont)
@@ -242,11 +247,10 @@ struct SearchView: View {
 
         return CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: size, height: size)
+            targetSize: CGSize(width: size * 2, height: size * 2)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .scaledToFill()
         .frame(width: size, height: size)
         .clipped()
         .overlay(alignment: .bottomLeading) {
@@ -274,13 +278,13 @@ struct SearchView: View {
             HStack(spacing: Theme.spacingM) {
                 CachedImageView(
                     url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
-                    targetSize: CGSize(width: 44, height: 44)
+                    targetSize: CGSize(width: 88, height: 88)
                 ) {
                     Circle()
                         .fill(Theme.separator)
                         .overlay {
                             Image(systemName: "person.fill")
-                                .font(.system(size: 14))
+                                .font(.system(size: 16))
                                 .foregroundColor(Theme.textTertiary)
                         }
                 }

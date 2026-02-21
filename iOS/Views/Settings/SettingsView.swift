@@ -86,7 +86,7 @@ struct SettingsView: View {
                 ZStack(alignment: .bottomTrailing) {
                     CachedImageView(
                         url: SupabaseConfig.storageURL(for: viewModel.profilePhotoURL ?? ""),
-                        targetSize: CGSize(width: 72, height: 72)
+                        targetSize: CGSize(width: 144, height: 144)
                     ) {
                         Circle()
                             .fill(Theme.separator)
@@ -98,6 +98,11 @@ struct SettingsView: View {
                     }
                     .frame(width: 72, height: 72)
                     .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 1.5)
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
 
                     if viewModel.isUploadingPhoto {
                         Circle()

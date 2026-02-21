@@ -119,6 +119,7 @@ struct CachedImageView<Placeholder: View>: View {
             if let image {
                 Image(uiImage: image)
                     .resizable()
+                    .aspectRatio(contentMode: .fill)
             } else if failed {
                 placeholder()
                     .overlay {

@@ -97,13 +97,13 @@ struct FollowListView: View {
             HStack(spacing: Theme.spacingM) {
                 CachedImageView(
                     url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
-                    targetSize: CGSize(width: 44, height: 44)
+                    targetSize: CGSize(width: 88, height: 88)
                 ) {
                     Circle()
                         .fill(Theme.separator)
                         .overlay {
                             Image(systemName: "person.fill")
-                                .font(.system(size: 14))
+                                .font(.system(size: 16))
                                 .foregroundColor(Theme.textTertiary)
                         }
                 }

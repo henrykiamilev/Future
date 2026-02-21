@@ -94,22 +94,26 @@ struct ProfileView: View {
 
     private var profileHeader: some View {
         VStack(spacing: Theme.spacingS) {
-            // Centered avatar
+            // Centered avatar — Instagram-style circular profile photo
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: viewModel.profilePhotoURL ?? ""),
-                targetSize: CGSize(width: 80, height: 80)
+                targetSize: CGSize(width: 160, height: 160)
             ) {
                 Circle()
                     .fill(Theme.separator)
                     .overlay {
                         Image(systemName: "person.fill")
-                            .font(.system(size: 28))
+                            .font(.system(size: 32))
                             .foregroundColor(Theme.textTertiary)
                     }
             }
-            .scaledToFill()
-            .frame(width: 80, height: 80)
+            .frame(width: 96, height: 96)
             .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(Color.white, lineWidth: 2)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
 
             // Username
             Text(viewModel.username)
@@ -238,11 +242,10 @@ struct ProfileView: View {
     private func signatureTile(_ post: PostSummary) -> some View {
         CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: signatureTileSize, height: signatureTileSize * 1.25)
+            targetSize: CGSize(width: signatureTileSize * 2, height: signatureTileSize * 2.5)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .scaledToFill()
         .frame(width: signatureTileSize, height: signatureTileSize * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {
@@ -289,11 +292,10 @@ struct ProfileView: View {
     private func liveTile(_ post: PostSummary) -> some View {
         CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: liveTileSize, height: liveTileSize * 1.25)
+            targetSize: CGSize(width: liveTileSize * 2, height: liveTileSize * 2.5)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .scaledToFill()
         .frame(width: liveTileSize, height: liveTileSize * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {

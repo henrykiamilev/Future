@@ -35,9 +35,15 @@ struct PostDetailView: View {
         HStack(spacing: Theme.spacingS) {
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: viewModel.post.authorPhoto ?? ""),
-                targetSize: CGSize(width: 36, height: 36)
+                targetSize: CGSize(width: 72, height: 72)
             ) {
-                Circle().fill(Theme.separator)
+                Circle()
+                    .fill(Theme.separator)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textTertiary)
+                    }
             }
             .frame(width: 36, height: 36)
             .clipShape(Circle())
@@ -72,7 +78,6 @@ struct PostDetailView: View {
                 .fill(Theme.background)
                 .overlay { ProgressView().tint(Theme.textTertiary) }
         }
-        .scaledToFill()
         .aspectRatio(1 / aspect, contentMode: .fit)
         .clipped()
     }
@@ -201,9 +206,15 @@ struct PostDetailView: View {
         HStack(alignment: .top, spacing: Theme.spacingS) {
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: comment.authorPhoto ?? ""),
-                targetSize: CGSize(width: 28, height: 28)
+                targetSize: CGSize(width: 56, height: 56)
             ) {
-                Circle().fill(Theme.separator)
+                Circle()
+                    .fill(Theme.separator)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(Theme.textTertiary)
+                    }
             }
             .frame(width: 28, height: 28)
             .clipShape(Circle())
