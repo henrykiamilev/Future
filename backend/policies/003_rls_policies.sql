@@ -166,17 +166,24 @@ CREATE POLICY likes_delete ON likes
 -- ============================================================================
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 
+-- Helper: check user visibility WITHOUT triggering users RLS (breaks circular reference)
+-- users_select_public → follows_select → users_select_public was causing infinite recursion.
+CREATE OR REPLACE FUNCTION is_user_public(p_user_id UUID)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM users WHERE id = p_user_id AND visibility = 'public'
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp;
+
 -- Users can see their own follows and followers
 CREATE POLICY follows_select ON follows
     FOR SELECT
     USING (
         follower_id = auth_uid()
         OR following_id = auth_uid()
-        -- Public follower lists
-        OR EXISTS (
-            SELECT 1 FROM users
-            WHERE id = follows.following_id AND visibility = 'public'
-        )
+        -- Public follower lists (SECURITY DEFINER helper avoids circular RLS)
+        OR is_user_public(follows.following_id)
     );
 
 -- Users can only create follows as themselves

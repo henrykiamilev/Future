@@ -210,6 +210,18 @@ final class APIClient: APIClientProtocol, Sendable {
             request.httpBody = try encoder.encode(body)
         }
 
+        // PostgREST: don't return rows on direct table write operations
+        // to avoid triggering SELECT RLS policies (prevents circular policy
+        // recursion between users_select_public ↔ follows_select).
+        // Only applies to /rest/v1/ (PostgREST), not /auth/v1/ (GoTrue).
+        // Excludes /rpc/ calls which return actual data.
+        if endpoint.path.hasPrefix("/rest/v1/") && !endpoint.path.contains("/rpc/") {
+            if endpoint.method == .PATCH || endpoint.method == .DELETE ||
+               endpoint.method == .POST {
+                request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+            }
+        }
+
         return request
     }
 
