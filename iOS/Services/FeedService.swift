@@ -29,14 +29,8 @@ final class FeedService: FeedServiceProtocol, Sendable {
             .mainFeed(cursorScore: cursorScore, cursorID: cursorID, limit: limit)
         )
 
-        // Fire-and-forget: don't block feed delivery on exposure recording
-        let authorIDs = Array(Set(page.posts.map(\.userID)))
-        if !authorIDs.isEmpty {
-            let client = self.client
-            Task.detached {
-                try? await client.requestVoid(.recordExposures(authorIDs: authorIDs))
-            }
-        }
+        // Exposure tracking is now handled atomically inside get_main_feed() on the server.
+        // No separate client-side call needed.
 
         return page
     }

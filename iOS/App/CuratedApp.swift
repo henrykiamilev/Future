@@ -75,6 +75,17 @@ enum SupabaseConfig {
     static let projectURL = URL(string: "https://rylyzntjznnwmysszbzq.supabase.co")!
     static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5bHl6bnRqem5ud215c3N6YnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NzIyNjIsImV4cCI6MjA4NjM0ODI2Mn0.IX-4kN7OAdrid-Frg-E3iV7wZzZD3hWhWq7zfEJ2Xn8"
     static let storageBucket = "posts"
+
+    /// Builds an authenticated storage URL from a relative path (e.g. `"uploads/abc.heic"`).
+    /// Full URLs (starting with "http") pass through unchanged for backward compatibility
+    /// during the migration window.
+    static func storageURL(for path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        // Backward compat: full URLs pass through during migration window
+        if path.hasPrefix("http") { return URL(string: path) }
+        // Authenticated endpoint — no /public/ segment
+        return projectURL.appendingPathComponent("storage/v1/object/\(storageBucket)/\(path)")
+    }
 }
 
 // MARK: - App-Wide Dependency Container
@@ -141,6 +152,12 @@ final class AppState: ObservableObject {
         self.notificationService = NotificationService(client: client)
 
         self.isAuthenticated = token.currentToken != nil
+
+        // Configure ImageCache with auth for private storage bucket
+        ImageCache.shared.configure(
+            tokenProvider: { [weak token] in token?.currentToken },
+            anonKey: SupabaseConfig.anonKey
+        )
 
         NotificationCenter.default.publisher(for: .authSessionExpired)
             .receive(on: RunLoop.main)
@@ -222,6 +239,6 @@ final class AppState: ObservableObject {
         cachedSettingsVM = nil
         cachedSearchVM = nil
         urlSession.configuration.urlCache?.removeAllCachedResponses()
-        ImageCache.shared.clearAll()
+        ImageCache.shared.clearDiskCache()
     }
 }

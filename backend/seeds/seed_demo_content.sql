@@ -2,16 +2,16 @@
 -- SEED SCRIPT — Demo Content for Curated
 -- ============================================================
 -- INSTRUCTIONS:
---   1. Upload post images to Storage → posts bucket → seed/ folder
+--   1. Upload post images to Storage → posts bucket → seeds/ folder
 --   2. Upload profile photos to Storage → posts bucket → profiles/ folder
 --   3. Name the files EXACTLY as listed below (or update the URLs)
---   4. Replace YOUR_PROJECT_REF below with your Supabase project ref
---   5. Paste this entire script into Supabase SQL Editor and run it
+--   4. Paste this entire script into Supabase SQL Editor and run it
 -- ============================================================
 
 DO $$
 DECLARE
-    base TEXT := 'https://rylyzntjznnwmysszbzq.supabase.co/storage/v1/object/public/posts';
+    -- Paths are now stored as relative paths (e.g. 'profiles/sofia.jpg')
+    -- The iOS app resolves full URLs via SupabaseConfig.storageURL(for:)
 
     -- User IDs (fixed so we can reference them)
     sofia_id   UUID := 'a1000000-0000-0000-0000-000000000001';
@@ -48,7 +48,7 @@ VALUES
 (sofia_id,
  'sofiareyes',
  'Sofia Reyes',
- base || '/profiles/sofia.jpg',
+ 'profiles/sofia.jpg',
  'less is more',
  'public', 'sofiareyes', 0, 0, 0,
  now() - interval '2 hours',
@@ -57,7 +57,7 @@ VALUES
 (ava_id,
  'avachen',
  'Ava Chen',
- base || '/profiles/ava.jpg',
+ 'profiles/ava.jpg',
  'coffee and clean lines',
  'public', 'avachen', 0, 0, 0,
  now() - interval '4 hours',
@@ -66,7 +66,7 @@ VALUES
 (mia_id,
  'mialaurent',
  'Mia Laurent',
- base || '/profiles/mia.jpg',
+ 'profiles/mia.jpg',
  'somewhere between here and paris',
  'public', 'mialaurent', 0, 0, 0,
  now() - interval '6 hours',
@@ -76,7 +76,7 @@ VALUES
 (ethan_id,
  'ethanmercer',
  'Ethan Mercer',
- base || '/profiles/ethan.jpg',
+ 'profiles/ethan.jpg',
  'details matter',
  'public', 'ethanmercer', 0, 0, 0,
  now() - interval '5 hours',
@@ -85,7 +85,7 @@ VALUES
 (luca_id,
  'lucamoretti',
  'Luca Moretti',
- base || '/profiles/luca.jpg',
+ 'profiles/luca.jpg',
  'espresso before everything',
  'public', 'lucamoretti', 0, 0, 0,
  now() - interval '1 hour',
@@ -94,7 +94,7 @@ VALUES
 (nolan_id,
  'nolanhayes',
  'Nolan Hayes',
- base || '/profiles/nolan.jpg',
+ 'profiles/nolan.jpg',
  'keep it simple',
  'public', 'nolanhayes', 0, 0, 0,
  now() - interval '7 hours',
@@ -104,48 +104,48 @@ VALUES
 -- ========================
 -- STEP 3: Insert 6 demo posts (1 per user)
 -- ========================
--- POST IMAGES TO UPLOAD (6 files → seed/ folder):
---   seed/sofia_1.jpg   — e.g. coffee shop, clean outfit
---   seed/ava_1.jpg     — e.g. minimal look, neutral tones
---   seed/mia_1.jpg     — e.g. elegant European vibe
---   seed/ethan_1.jpg   — e.g. classic menswear, clean
---   seed/luca_1.jpg    — e.g. Italian cafe or tailored casual
---   seed/nolan_1.jpg   — e.g. minimal streetwear or with car
+-- POST IMAGES TO UPLOAD (6 files → seeds/ folder):
+--   seeds/sofia_1.jpg   — e.g. coffee shop, clean outfit
+--   seeds/ava_1.jpg     — e.g. minimal look, neutral tones
+--   seeds/mia_1.jpg     — e.g. elegant European vibe
+--   seeds/ethan_1.jpg   — e.g. classic menswear, clean
+--   seeds/luca_1.jpg    — e.g. Italian cafe or tailored casual
+--   seeds/nolan_1.jpg   — e.g. minimal streetwear or with car
 
 INSERT INTO posts (id, user_id, image_url, image_width, image_height, image_size_bytes, like_count, view_count, is_signature, is_hidden, expires_at, created_at)
 VALUES
 (uuid_generate_v4(), sofia_id,
- base || '/seed/sofia_1.jpg',
+ 'seeds/sofia_1.jpg',
  1080, 1350, 1048576, 0, 0, TRUE, FALSE,
  now() + interval '2 days 22 hours',
  now() - interval '2 hours'),
 
 (uuid_generate_v4(), ava_id,
- base || '/seed/ava_1.jpg',
+ 'seeds/ava_1.jpg',
  1080, 1350, 1150000, 0, 0, TRUE, FALSE,
  now() + interval '2 days 20 hours',
  now() - interval '4 hours'),
 
 (uuid_generate_v4(), mia_id,
- base || '/seed/mia_1.jpg',
+ 'seeds/mia_1.jpg',
  1080, 1350, 1200000, 0, 0, TRUE, FALSE,
  now() + interval '2 days 18 hours',
  now() - interval '6 hours'),
 
 (uuid_generate_v4(), ethan_id,
- base || '/seed/ethan_1.jpg',
+ 'seeds/ethan_1.jpg',
  1080, 1350, 1180000, 0, 0, TRUE, FALSE,
  now() + interval '2 days 19 hours',
  now() - interval '5 hours'),
 
 (uuid_generate_v4(), luca_id,
- base || '/seed/luca_1.jpg',
+ 'seeds/luca_1.jpg',
  1080, 1350, 1090000, 0, 0, TRUE, FALSE,
  now() + interval '2 days 23 hours',
  now() - interval '1 hour'),
 
 (uuid_generate_v4(), nolan_id,
- base || '/seed/nolan_1.jpg',
+ 'seeds/nolan_1.jpg',
  1080, 1350, 1130000, 0, 0, TRUE, FALSE,
  now() + interval '2 days 17 hours',
  now() - interval '7 hours');

@@ -189,7 +189,7 @@ struct SearchView: View {
     private func suggestedUserCard(_ user: SuggestedUser) -> some View {
         VStack(spacing: Theme.spacingS) {
             CachedImageView(
-                url: URL(string: user.profilePhotoURL ?? ""),
+                url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
                 targetSize: CGSize(width: 64, height: 64)
             ) {
                 Circle()
@@ -241,7 +241,7 @@ struct SearchView: View {
         let size = (UIScreen.main.bounds.width - 4) / 2
 
         return CachedImageView(
-            url: URL(string: post.imageURL),
+            url: SupabaseConfig.storageURL(for: post.imageURL),
             targetSize: CGSize(width: size, height: size)
         ) {
             Rectangle().fill(Theme.separator)
@@ -273,7 +273,7 @@ struct SearchView: View {
         NavigationLink(value: user.id) {
             HStack(spacing: Theme.spacingM) {
                 CachedImageView(
-                    url: URL(string: user.profilePhotoURL ?? ""),
+                    url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
                     targetSize: CGSize(width: 44, height: 44)
                 ) {
                     Circle()

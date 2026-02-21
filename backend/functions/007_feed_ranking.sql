@@ -35,14 +35,14 @@ CREATE OR REPLACE FUNCTION record_post_view(p_post_id UUID)
 RETURNS void AS $$
 BEGIN
     -- Increment denormalized counter on posts
-    UPDATE posts SET view_count = view_count + 1
+    UPDATE public.posts SET view_count = view_count + 1
     WHERE id = p_post_id;
 
     -- Upsert into hourly bucket (for velocity calculation)
-    INSERT INTO post_view_hourly (post_id, hour_bucket, view_count)
+    INSERT INTO public.post_view_hourly (post_id, hour_bucket, view_count)
     VALUES (p_post_id, date_trunc('hour', now()), 1)
     ON CONFLICT (post_id, hour_bucket)
-    DO UPDATE SET view_count = post_view_hourly.view_count + 1;
+    DO UPDATE SET view_count = public.post_view_hourly.view_count + 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp;
@@ -150,23 +150,53 @@ RETURNS TABLE (
     tags JSONB
 ) AS $$
 DECLARE
-    v_viewer_id UUID := auth_uid();
+    v_viewer_id UUID := auth.uid();
     v_personal_w DOUBLE PRECISION := 0.15;
     v_max_author_exposure INT := 2;
 BEGIN
+    -- ──────────────────────────────────────────────────────────────────
+    -- STEP 0: Capture this page's author IDs for atomic exposure tracking
+    -- ──────────────────────────────────────────────────────────────────
+    CREATE TEMP TABLE IF NOT EXISTS _page_authors (author_id UUID) ON COMMIT DROP;
+    TRUNCATE _page_authors;
+
+    INSERT INTO _page_authors (author_id)
+    SELECT DISTINCT fs.author_id
+    FROM public.feed_scores fs
+    LEFT JOIN public.follows vf ON vf.following_id = fs.author_id
+        AND vf.follower_id = v_viewer_id AND vf.is_approved = TRUE
+    LEFT JOIN public.feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
+    WHERE fs.author_id NOT IN (
+        SELECT b.blocked_id FROM public.blocks b WHERE b.blocker_id = v_viewer_id
+        UNION ALL
+        SELECT b.blocker_id FROM public.blocks b WHERE b.blocked_id = v_viewer_id
+    )
+    AND CASE WHEN fe.window_start IS NOT NULL AND fe.window_start > now() - INTERVAL '24 hours'
+        THEN COALESCE(fe.exposure_count, 0) ELSE 0 END < v_max_author_exposure
+    AND (
+        p_cursor_score IS NULL
+        OR (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) < p_cursor_score
+        OR ((fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) = p_cursor_score AND fs.post_id < p_cursor_id)
+    )
+    ORDER BY (fs.base_score + (CASE WHEN vf.following_id IS NOT NULL THEN v_personal_w ELSE 0.0 END)) DESC, fs.post_id DESC
+    LIMIT p_limit;
+
+    -- ──────────────────────────────────────────────────────────────────
+    -- STEP 1: Query the feed (CTE chain)
+    -- ──────────────────────────────────────────────────────────────────
     RETURN QUERY
     WITH viewer_follows AS (
         -- Pre-fetch viewer's follow list (typically small set)
         SELECT f.following_id
-        FROM follows f
+        FROM public.follows f
         WHERE f.follower_id = v_viewer_id
           AND f.is_approved = TRUE
     ),
     viewer_blocks AS (
         -- Pre-fetch viewer's block list
-        SELECT b.blocked_id AS uid FROM blocks b WHERE b.blocker_id = v_viewer_id
+        SELECT b.blocked_id AS uid FROM public.blocks b WHERE b.blocker_id = v_viewer_id
         UNION ALL
-        SELECT b.blocker_id AS uid FROM blocks b WHERE b.blocked_id = v_viewer_id
+        SELECT b.blocker_id AS uid FROM public.blocks b WHERE b.blocked_id = v_viewer_id
     ),
     scored_feed AS (
         SELECT
@@ -178,9 +208,9 @@ BEGIN
             -- Reset exposure counter if window expired
             CASE WHEN fe.window_start IS NOT NULL AND fe.window_start > now() - INTERVAL '24 hours'
                 THEN COALESCE(fe.exposure_count, 0) ELSE 0 END AS active_exposure
-        FROM feed_scores fs
+        FROM public.feed_scores fs
         LEFT JOIN viewer_follows vf ON vf.following_id = fs.author_id
-        LEFT JOIN feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
+        LEFT JOIN public.feed_exposures fe ON fe.viewer_id = v_viewer_id AND fe.author_id = fs.author_id
         WHERE fs.author_id NOT IN (SELECT uid FROM viewer_blocks)
     ),
     filtered AS (
@@ -207,7 +237,7 @@ BEGIN
         p.like_count,
         p.view_count,
         EXISTS (
-            SELECT 1 FROM likes l
+            SELECT 1 FROM public.likes l
             WHERE l.post_id = p.id AND l.user_id = v_viewer_id
         ) AS is_liked,
         p.created_at,
@@ -221,43 +251,65 @@ BEGIN
                     'position_y', t.position_y
                 )
             )
-            FROM tags t WHERE t.post_id = p.id),
+            FROM public.tags t WHERE t.post_id = p.id),
             '[]'::JSONB
         ) AS tags
     FROM filtered f
-    JOIN posts p ON p.id = f.post_id
-    JOIN users u ON u.id = p.user_id
+    JOIN public.posts p ON p.id = f.post_id
+    JOIN public.users u ON u.id = p.user_id
     WHERE u.visibility = 'public'
       AND u.is_banned = FALSE
       AND p.is_hidden = FALSE
       AND p.expires_at > now()
     ORDER BY f.final_score DESC, f.post_id DESC;
+
+    -- ──────────────────────────────────────────────────────────────────
+    -- STEP 2: Atomically record feed exposures for returned authors
+    -- ──────────────────────────────────────────────────────────────────
+    -- Idempotent: ON CONFLICT increments exposure_count
+    -- Bounded: only inserts for authors in this page (≤ p_limit rows)
+    -- Author-level dedup: PK is (viewer_id, author_id)
+    -- Rolling window: resets counter if window_start > 24h ago
+    INSERT INTO public.feed_exposures (viewer_id, author_id, exposure_count, window_start)
+    SELECT v_viewer_id, pa.author_id, 1, now()
+    FROM _page_authors pa
+    ON CONFLICT (viewer_id, author_id) DO UPDATE SET
+        exposure_count = CASE
+            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN public.feed_exposures.exposure_count + 1
+            ELSE 1
+        END,
+        window_start = CASE
+            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN public.feed_exposures.window_start
+            ELSE now()
+        END;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER
+$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = public, pg_temp;
 
 -- --------------------------------------------------------------------------
--- RECORD FEED EXPOSURE (rolling 24h window)
+-- RECORD FEED EXPOSURE (rolling 24h window) — LEGACY
 -- --------------------------------------------------------------------------
--- Called after serving feed results. Uses rolling window instead of calendar day.
--- If the window has expired (>24h), resets the counter to 1.
+-- Retained for friends feed or manual calls. Main feed now records exposures
+-- atomically inside get_main_feed().
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION record_feed_exposures(p_author_ids UUID[])
 RETURNS void AS $$
 BEGIN
-    INSERT INTO feed_exposures (viewer_id, author_id, exposure_count, window_start)
-    SELECT auth_uid(), aid, 1, now()
+    INSERT INTO public.feed_exposures (viewer_id, author_id, exposure_count, window_start)
+    SELECT auth.uid(), aid, 1, now()
     FROM unnest(p_author_ids) AS aid
     ON CONFLICT (viewer_id, author_id)
     DO UPDATE SET
         exposure_count = CASE
-            WHEN feed_exposures.window_start > now() - INTERVAL '24 hours'
-            THEN feed_exposures.exposure_count + 1
+            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN public.feed_exposures.exposure_count + 1
             ELSE 1
         END,
         window_start = CASE
-            WHEN feed_exposures.window_start > now() - INTERVAL '24 hours'
-            THEN feed_exposures.window_start
+            WHEN public.feed_exposures.window_start > now() - INTERVAL '24 hours'
+            THEN public.feed_exposures.window_start
             ELSE now()
         END;
 END;

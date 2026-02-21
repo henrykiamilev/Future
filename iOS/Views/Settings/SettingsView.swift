@@ -85,7 +85,7 @@ struct SettingsView: View {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 ZStack(alignment: .bottomTrailing) {
                     CachedImageView(
-                        url: URL(string: viewModel.profilePhotoURL ?? ""),
+                        url: SupabaseConfig.storageURL(for: viewModel.profilePhotoURL ?? ""),
                         targetSize: CGSize(width: 72, height: 72)
                     ) {
                         Circle()

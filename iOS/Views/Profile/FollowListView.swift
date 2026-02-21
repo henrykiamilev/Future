@@ -96,7 +96,7 @@ struct FollowListView: View {
         } label: {
             HStack(spacing: Theme.spacingM) {
                 CachedImageView(
-                    url: URL(string: user.profilePhotoURL ?? ""),
+                    url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
                     targetSize: CGSize(width: 44, height: 44)
                 ) {
                     Circle()

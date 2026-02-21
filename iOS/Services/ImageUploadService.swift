@@ -133,15 +133,14 @@ final class ImageUploadService: ImageUploadServiceProtocol, Sendable {
         onProgress(0.95)
         try Task.checkCancellation()
 
-        // Construct public URL
-        let publicURL = baseURL
-            .appendingPathComponent("/storage/v1/object/public/\(bucket)/\(fileName)")
-            .absoluteString
+        // Store relative path — the app resolves full URLs via SupabaseConfig.storageURL(for:)
+        // This keeps the DB portable and enables switching between public/private buckets.
+        let relativePath = fileName
 
         onProgress(1.0)
 
         return UploadedImage(
-            url: publicURL,
+            url: relativePath,
             width: compressed.width,
             height: compressed.height,
             sizeBytes: compressed.sizeBytes,

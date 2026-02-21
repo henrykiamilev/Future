@@ -60,7 +60,7 @@ struct ArchiveView: View {
         let size = (UIScreen.main.bounds.width - 4) / 3
 
         return CachedImageView(
-            url: URL(string: post.imageURL),
+            url: SupabaseConfig.storageURL(for: post.imageURL),
             targetSize: CGSize(width: size, height: size)
         ) {
             Rectangle().fill(Theme.separator)

@@ -6,24 +6,83 @@ import ImageIO
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
 
-    private let cache = NSCache<NSString, UIImage>()
+    private let memoryCache = NSCache<NSString, UIImage>()
+
+    /// Dedicated URLSession with disk caching for images.
+    /// Images use immutable UUID paths, so `.returnCacheDataElseLoad` is safe.
+    let session: URLSession
+
+    private let diskCache: URLCache
+
+    // Auth — set once at app startup via configure(tokenProvider:anonKey:)
+    private var tokenProvider: (() -> String?)?
+    private var anonKey: String?
 
     private init() {
-        cache.countLimit = 100
-        cache.totalCostLimit = 50 * 1024 * 1024
+        memoryCache.countLimit = 100
+        memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50 MB memory
+
+        // 20 MB memory + 200 MB disk — separate from APIClient's URLCache
+        diskCache = URLCache(
+            memoryCapacity: 20_000_000,
+            diskCapacity: 200_000_000,
+            directory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+                .first?.appendingPathComponent("ImageCache")
+        )
+
+        let config = URLSessionConfiguration.default
+        config.urlCache = diskCache
+        config.requestCachePolicy = .returnCacheDataElseLoad
+        config.httpMaximumConnectionsPerHost = 6
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 30
+        session = URLSession(configuration: config)
+    }
+
+    /// Call once at app startup to enable authenticated image requests.
+    func configure(tokenProvider: @escaping () -> String?, anonKey: String) {
+        self.tokenProvider = tokenProvider
+        self.anonKey = anonKey
     }
 
     func image(for key: String) -> UIImage? {
-        cache.object(forKey: key as NSString)
+        memoryCache.object(forKey: key as NSString)
     }
 
     func setImage(_ image: UIImage, for key: String) {
         let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
-        cache.setObject(image, forKey: key as NSString, cost: cost)
+        memoryCache.setObject(image, forKey: key as NSString, cost: cost)
     }
 
+    /// Builds a URLRequest with auth headers for Supabase private storage.
+    /// Falls back to a plain request if auth is not configured (e.g. external URLs).
+    func authenticatedRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.cachePolicy = .returnCacheDataElseLoad
+        if let anonKey {
+            request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        }
+        if let token = tokenProvider?() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return request
+    }
+
+    /// Checks whether the disk cache has a stored response for the given URL.
+    func hasDiskCache(for url: URL) -> Bool {
+        let request = authenticatedRequest(for: url)
+        return diskCache.cachedResponse(for: request) != nil
+    }
+
+    /// Clears in-memory decoded image cache only.
     func clearAll() {
-        cache.removeAllObjects()
+        memoryCache.removeAllObjects()
+    }
+
+    /// Clears both in-memory and on-disk caches. Called on sign-out.
+    func clearDiskCache() {
+        memoryCache.removeAllObjects()
+        diskCache.removeAllCachedResponses()
     }
 }
 
@@ -107,14 +166,34 @@ struct CachedImageView<Placeholder: View>: View {
 
         let key = url.absoluteString
         if let cached = ImageCache.shared.image(for: key) {
+            #if DEBUG
+            print("[ImageCache] MEM-HIT \(url.lastPathComponent)")
+            #endif
             image = cached
             return
         }
 
         loadTask = Task {
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                #if DEBUG
+                let diskHit = ImageCache.shared.hasDiskCache(for: url)
+                print("[ImageCache] \(diskHit ? "DISK-HIT" : "MISS") \(url.lastPathComponent)")
+                #endif
+
+                let request = ImageCache.shared.authenticatedRequest(for: url)
+                var (data, response) = try await ImageCache.shared.session.data(for: request)
                 guard !Task.isCancelled else { return }
+
+                // 401 retry: refresh token and retry once
+                if let httpResponse = response as? HTTPURLResponse,
+                   httpResponse.statusCode == 401 {
+                    #if DEBUG
+                    print("[ImageCache] 401 — refreshing token and retrying \(url.lastPathComponent)")
+                    #endif
+                    let retryRequest = ImageCache.shared.authenticatedRequest(for: url)
+                    (data, response) = try await ImageCache.shared.session.data(for: retryRequest)
+                    guard !Task.isCancelled else { return }
+                }
 
                 // Validate HTTP status — URLSession.data doesn't throw on 4xx/5xx
                 if let httpResponse = response as? HTTPURLResponse,

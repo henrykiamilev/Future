@@ -34,7 +34,7 @@ struct PostDetailView: View {
     private var authorRow: some View {
         HStack(spacing: Theme.spacingS) {
             CachedImageView(
-                url: URL(string: viewModel.post.authorPhoto ?? ""),
+                url: SupabaseConfig.storageURL(for: viewModel.post.authorPhoto ?? ""),
                 targetSize: CGSize(width: 36, height: 36)
             ) {
                 Circle().fill(Theme.separator)
@@ -65,7 +65,7 @@ struct PostDetailView: View {
         let screenWidth = UIScreen.main.bounds.width
 
         return CachedImageView(
-            url: URL(string: viewModel.post.imageURL),
+            url: SupabaseConfig.storageURL(for: viewModel.post.imageURL),
             targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
         ) {
             Rectangle()
@@ -200,7 +200,7 @@ struct PostDetailView: View {
     private func commentRow(_ comment: Comment) -> some View {
         HStack(alignment: .top, spacing: Theme.spacingS) {
             CachedImageView(
-                url: URL(string: comment.authorPhoto ?? ""),
+                url: SupabaseConfig.storageURL(for: comment.authorPhoto ?? ""),
                 targetSize: CGSize(width: 28, height: 28)
             ) {
                 Circle().fill(Theme.separator)

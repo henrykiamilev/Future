@@ -22,7 +22,7 @@ struct FeedPostCard: View {
         Button(action: onAuthorTapped) {
             HStack(spacing: Theme.spacingS) {
                 CachedImageView(
-                    url: URL(string: post.authorPhoto ?? ""),
+                    url: SupabaseConfig.storageURL(for: post.authorPhoto ?? ""),
                     targetSize: CGSize(width: 32, height: 32)
                 ) {
                     Circle()
@@ -54,7 +54,7 @@ struct FeedPostCard: View {
         let screenWidth = UIScreen.main.bounds.width
 
         return CachedImageView(
-            url: URL(string: post.imageURL),
+            url: SupabaseConfig.storageURL(for: post.imageURL),
             targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
         ) {
             Rectangle()

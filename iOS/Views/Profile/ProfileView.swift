@@ -96,7 +96,7 @@ struct ProfileView: View {
         VStack(spacing: Theme.spacingS) {
             // Centered avatar
             CachedImageView(
-                url: URL(string: viewModel.profilePhotoURL ?? ""),
+                url: SupabaseConfig.storageURL(for: viewModel.profilePhotoURL ?? ""),
                 targetSize: CGSize(width: 80, height: 80)
             ) {
                 Circle()
@@ -237,7 +237,7 @@ struct ProfileView: View {
 
     private func signatureTile(_ post: PostSummary) -> some View {
         CachedImageView(
-            url: URL(string: post.imageURL),
+            url: SupabaseConfig.storageURL(for: post.imageURL),
             targetSize: CGSize(width: signatureTileSize, height: signatureTileSize * 1.25)
         ) {
             Rectangle().fill(Theme.separator)
@@ -288,7 +288,7 @@ struct ProfileView: View {
 
     private func liveTile(_ post: PostSummary) -> some View {
         CachedImageView(
-            url: URL(string: post.imageURL),
+            url: SupabaseConfig.storageURL(for: post.imageURL),
             targetSize: CGSize(width: liveTileSize, height: liveTileSize * 1.25)
         ) {
             Rectangle().fill(Theme.separator)
