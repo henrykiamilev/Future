@@ -107,6 +107,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
             }
+            .scaledToFill()
             .frame(width: 80, height: 80)
             .clipShape(Circle())
 
