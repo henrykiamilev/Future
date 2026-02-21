@@ -6,6 +6,7 @@ struct ProfileView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showSettings = false
     @State private var showFollowList = false
+    @State private var followListPath = NavigationPath()
 
     private let signatureTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3
     private let liveTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3 * 0.78
@@ -183,12 +184,17 @@ struct ProfileView: View {
         }
         .padding(.horizontal, Theme.spacingL)
         .padding(.bottom, Theme.spacingXL)
-        .sheet(isPresented: $showFollowList) {
-            NavigationStack {
+        .sheet(isPresented: $showFollowList, onDismiss: { followListPath = NavigationPath() }) {
+            NavigationStack(path: $followListPath) {
                 FollowListView(
                     viewModel: appState.makeFollowListViewModel(userID: viewModel.userID),
-                    onUserTapped: { _ in }
+                    onUserTapped: { userID in
+                        followListPath.append(userID)
+                    }
                 )
+                .navigationDestination(for: UUID.self) { userID in
+                    ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { showFollowList = false }

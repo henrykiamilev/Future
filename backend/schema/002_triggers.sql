@@ -105,8 +105,14 @@ CREATE TRIGGER post_enforce_max_signatures
 -- --------------------------------------------------------------------------
 -- LIKE COUNT DENORMALIZATION
 -- --------------------------------------------------------------------------
+-- SECURITY DEFINER: likes update ANOTHER user's total_likes and post like_count.
+-- RLS (users_update_own, posts_update_own) would silently block cross-user UPDATEs.
 CREATE OR REPLACE FUNCTION trg_like_count_increment()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     v_author_id UUID;
 BEGIN
@@ -123,10 +129,14 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION trg_like_count_decrement()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     v_author_id UUID;
 BEGIN
@@ -142,7 +152,7 @@ BEGIN
 
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER like_after_insert
     AFTER INSERT ON likes
@@ -157,8 +167,15 @@ CREATE TRIGGER like_after_delete
 -- --------------------------------------------------------------------------
 -- FOLLOWER/FOLLOWING COUNT DENORMALIZATION
 -- --------------------------------------------------------------------------
+-- SECURITY DEFINER: the trigger must update OTHER users' follower/following
+-- counts, but RLS (users_update_own) only allows id = auth_uid().
+-- Without SECURITY DEFINER the cross-user UPDATEs are silently skipped.
 CREATE OR REPLACE FUNCTION trg_follow_count_change()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
     IF TG_OP = 'INSERT' AND NEW.is_approved = TRUE THEN
         UPDATE users SET following_count = following_count + 1, updated_at = now()
@@ -186,7 +203,7 @@ BEGIN
         RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER follow_after_change
     AFTER INSERT OR UPDATE OR DELETE ON follows
