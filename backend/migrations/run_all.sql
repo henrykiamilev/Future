@@ -94,6 +94,9 @@
 \echo '>>> 020: Report content RPC'
 \i ../functions/020_report_content.sql
 
+\echo '>>> 021: Notifications (table, triggers, RPCs)'
+\i ../functions/021_notifications.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

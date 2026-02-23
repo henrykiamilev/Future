@@ -37,4 +37,23 @@ final class NotificationService: NSObject, Sendable {
             // Silently fail — will retry on next app launch
         }
     }
+
+    // MARK: - Notification Center
+
+    func fetchNotifications(cursor: Date? = nil) async throws -> [AppNotification] {
+        try await client.request(.notifications(cursor: cursor))
+    }
+
+    func markAllRead() async {
+        try? await client.requestVoid(.markNotificationsRead)
+    }
+
+    func fetchUnreadCount() async -> Int {
+        do {
+            let count: Int = try await client.request(.unreadNotificationCount)
+            return count
+        } catch {
+            return 0
+        }
+    }
 }

@@ -367,6 +367,30 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Notification Center Endpoints
+
+extension APIEndpoint {
+    static func notifications(cursor: Date? = nil, limit: Int = 30) -> APIEndpoint {
+        var cursorString: String?
+        if let cursor {
+            cursorString = ISO8601DateFormatter().string(from: cursor)
+        }
+        return APIEndpoint(
+            path: "/rest/v1/rpc/get_notifications",
+            method: .POST,
+            body: RPCNotifications(p_cursor: cursorString, p_limit: limit)
+        )
+    }
+
+    static var markNotificationsRead: APIEndpoint {
+        APIEndpoint(path: "/rest/v1/rpc/mark_notifications_read", method: .POST)
+    }
+
+    static var unreadNotificationCount: APIEndpoint {
+        APIEndpoint(path: "/rest/v1/rpc/get_unread_notification_count", method: .POST)
+    }
+}
+
 // MARK: - Onboarding Endpoints
 
 extension APIEndpoint {
@@ -506,4 +530,9 @@ private struct RPCPushToken: Encodable, Sendable {
 
 private struct OnboardingComplete: Encodable, Sendable {
     let onboardingCompletedAt: Date
+}
+
+private struct RPCNotifications: Encodable, Sendable {
+    let p_cursor: String?
+    let p_limit: Int
 }

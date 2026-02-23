@@ -42,6 +42,9 @@ struct CuratedApp: App {
             .preferredColorScheme(.light)
             .onChange(of: appState.isAuthenticated) { _, isAuth in
                 if isAuth {
+                    // Request push notification permission on login
+                    Task { _ = await appState.notificationService.requestPermission() }
+
                     // Check local cache first for instant UI
                     guard !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") else { return }
                     // Verify against server to prevent infinite loop and handle reinstalls
@@ -176,6 +179,7 @@ final class AppState: ObservableObject {
     private var cachedProfileVMs: [UUID: ProfileViewModel] = [:]
     private var cachedSettingsVM: SettingsViewModel?
     private var cachedSearchVM: SearchViewModel?
+    private var cachedNotificationVM: NotificationViewModel?
 
     func makeFeedViewModel() -> FeedViewModel {
         if let vm = cachedFeedVM { return vm }
@@ -235,6 +239,13 @@ final class AppState: ObservableObject {
         )
     }
 
+    func makeNotificationViewModel() -> NotificationViewModel {
+        if let vm = cachedNotificationVM { return vm }
+        let vm = NotificationViewModel(notificationService: notificationService)
+        cachedNotificationVM = vm
+        return vm
+    }
+
     func makeFollowListViewModel(userID: UUID) -> FollowListViewModel {
         FollowListViewModel(userID: userID, profileService: profileService)
     }
@@ -246,6 +257,7 @@ final class AppState: ObservableObject {
         cachedProfileVMs.removeAll()
         cachedSettingsVM = nil
         cachedSearchVM = nil
+        cachedNotificationVM = nil
         urlSession.configuration.urlCache?.removeAllCachedResponses()
         ImageCache.shared.clearDiskCache()
     }
