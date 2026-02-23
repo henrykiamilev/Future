@@ -428,6 +428,26 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Streak Endpoints
+
+extension APIEndpoint {
+    static func getStreakWith(userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_streak_with_user",
+            method: .POST,
+            body: RPCOtherUser(p_other_user_id: userID.uuidString)
+        )
+    }
+
+    static func getMyStreaks(minStreak: Int = 1) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_my_streaks",
+            method: .POST,
+            body: RPCMinStreak(p_min_streak: minStreak)
+        )
+    }
+}
+
 // MARK: - Onboarding Endpoints
 
 extension APIEndpoint {
@@ -585,4 +605,12 @@ private struct RPCReaction: Encodable, Sendable {
 
 private struct RPCReactionCheck: Encodable, Sendable {
     let p_post_ids: [String]
+}
+
+private struct RPCOtherUser: Encodable, Sendable {
+    let p_other_user_id: String
+}
+
+private struct RPCMinStreak: Encodable, Sendable {
+    let p_min_streak: Int
 }

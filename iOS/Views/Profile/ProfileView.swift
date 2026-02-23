@@ -134,6 +134,11 @@ struct ProfileView: View {
                 .font(Theme.titleFont)
                 .foregroundColor(theme.textPrimary)
 
+            // Streak badge (non-own profiles with active streak)
+            if !viewModel.isOwnProfile && viewModel.streakCount > 0 {
+                streakBadge
+            }
+
             // Social links (Instagram / Snapchat deep link buttons)
             SocialLinksRow(
                 instagramHandle: viewModel.instagramHandle,
@@ -457,6 +462,26 @@ struct ProfileView: View {
         .background(.ultraThinMaterial)
         .cornerRadius(Theme.radiusS)
         .padding(6)
+    }
+
+    private var streakBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.orange)
+            Text("\(viewModel.streakCount)")
+                .font(Theme.headlineFont)
+                .foregroundColor(theme.textPrimary)
+            Text(viewModel.streakCount == 1 ? "day streak" : "day streak")
+                .font(Theme.captionFont)
+                .foregroundColor(theme.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color.orange.opacity(0.12))
+        )
     }
 
     private func formatStat(_ value: Int) -> String {

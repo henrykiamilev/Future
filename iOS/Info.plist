@@ -6,5 +6,13 @@
 	<string>Curated needs camera access to take photos for your posts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Curated needs photo library access to save your photos.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>OpenSauceSans-Regular.ttf</string>
+		<string>OpenSauceSans-Medium.ttf</string>
+		<string>OpenSauceSans-SemiBold.ttf</string>
+		<string>OpenSauceSans-Bold.ttf</string>
+		<string>OpenSauceSans-Light.ttf</string>
+	</array>
 </dict>
 </plist>

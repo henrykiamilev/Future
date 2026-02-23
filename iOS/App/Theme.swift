@@ -30,16 +30,16 @@ enum Theme {
     static let radiusL: CGFloat = 12
     static let radiusXL: CGFloat = 16
 
-    // MARK: - Typography
+    // MARK: - Typography (Open Sauce Sans)
 
-    static let titleFont: Font = .system(size: 18, weight: .semibold, design: .default)
-    static let headlineFont: Font = .system(size: 15, weight: .medium, design: .default)
-    static let bodyFont: Font = .system(size: 14, weight: .regular, design: .default)
-    static let captionFont: Font = .system(size: 12, weight: .regular, design: .default)
-    static let labelFont: Font = .system(size: 11, weight: .medium, design: .default)
-    static let statNumberFont: Font = .system(size: 16, weight: .semibold, design: .rounded)
-    static let statLabelFont: Font = .system(size: 11, weight: .regular, design: .default)
-    static let sectionHeaderFont: Font = .system(size: 12, weight: .semibold, design: .default)
+    static let titleFont: Font = .custom("OpenSauceSans-SemiBold", size: 18)
+    static let headlineFont: Font = .custom("OpenSauceSans-Medium", size: 15)
+    static let bodyFont: Font = .custom("OpenSauceSans-Regular", size: 14)
+    static let captionFont: Font = .custom("OpenSauceSans-Regular", size: 12)
+    static let labelFont: Font = .custom("OpenSauceSans-Medium", size: 11)
+    static let statNumberFont: Font = .custom("OpenSauceSans-SemiBold", size: 16)
+    static let statLabelFont: Font = .custom("OpenSauceSans-Regular", size: 11)
+    static let sectionHeaderFont: Font = .custom("OpenSauceSans-SemiBold", size: 12)
 
     // MARK: - Shadows
 

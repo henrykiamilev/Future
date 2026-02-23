@@ -103,6 +103,9 @@
 \echo '>>> 023: Profile themes (user-selectable color themes)'
 \i ../functions/023_profile_themes.sql
 
+\echo '>>> 024: Streaks (connection chains between users)'
+\i ../functions/024_streaks.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

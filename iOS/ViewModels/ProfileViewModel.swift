@@ -10,6 +10,9 @@ final class ProfileViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
 
+    // Streak
+    @Published private(set) var streakCount: Int = 0
+
     // Archive
     @Published private(set) var archivePosts: [ArchivePost] = []
     @Published private(set) var isLoadingArchive = false
@@ -63,6 +66,12 @@ final class ProfileViewModel: ObservableObject {
 
         do {
             profile = try await profileService.fetchProfile(userID: userID)
+            // Load streak if viewing someone else's profile
+            if profile?.isOwnProfile == false {
+                if let streak = try? await profileService.getStreakWith(userID: userID) {
+                    streakCount = streak.currentStreak
+                }
+            }
         } catch {
             self.error = error.localizedDescription
         }

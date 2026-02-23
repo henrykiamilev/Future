@@ -14,6 +14,23 @@ protocol ProfileServiceProtocol: Sendable {
     func getFollowing(userID: UUID) async throws -> [UserSummary]
     func deleteAccount() async throws
     func completeOnboarding(userID: UUID) async throws
+    func getStreakWith(userID: UUID) async throws -> StreakInfo?
+    func getMyStreaks() async throws -> [StreakPartner]
+}
+
+struct StreakInfo: Decodable, Sendable {
+    let currentStreak: Int
+    let longestStreak: Int
+}
+
+struct StreakPartner: Decodable, Identifiable, Sendable {
+    let partnerId: UUID
+    let partnerUsername: String
+    let partnerPhoto: String?
+    let currentStreak: Int
+    let longestStreak: Int
+
+    var id: UUID { partnerId }
 }
 
 struct ArchivePage: Decodable, Sendable {
@@ -89,5 +106,14 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func completeOnboarding(userID: UUID) async throws {
         try await client.requestVoid(.completeOnboarding(userID: userID))
+    }
+
+    func getStreakWith(userID: UUID) async throws -> StreakInfo? {
+        let results: [StreakInfo] = try await client.request(.getStreakWith(userID: userID))
+        return results.first
+    }
+
+    func getMyStreaks() async throws -> [StreakPartner] {
+        try await client.request(.getMyStreaks())
     }
 }

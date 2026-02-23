@@ -56,6 +56,11 @@
 		A1000000000000000000002F /* NotificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000031 /* NotificationViewModel.swift */; };
 		A10000000000000000000030 /* NotificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* NotificationView.swift */; };
 		A10000000000000000000031 /* ReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* ReactionPicker.swift */; };
+		A10000000000000000000032 /* OpenSauceSans-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* OpenSauceSans-Regular.ttf */; };
+		A10000000000000000000033 /* OpenSauceSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* OpenSauceSans-Medium.ttf */; };
+		A10000000000000000000034 /* OpenSauceSans-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* OpenSauceSans-SemiBold.ttf */; };
+		A10000000000000000000035 /* OpenSauceSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* OpenSauceSans-Bold.ttf */; };
+		A10000000000000000000036 /* OpenSauceSans-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* OpenSauceSans-Light.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -111,6 +116,11 @@
 		B10000000000000000000031 /* NotificationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationViewModel.swift; sourceTree = "<group>"; };
 		B10000000000000000000032 /* NotificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationView.swift; sourceTree = "<group>"; };
 		B10000000000000000000033 /* ReactionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionPicker.swift; sourceTree = "<group>"; };
+		B10000000000000000000034 /* OpenSauceSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Regular.ttf"; sourceTree = "<group>"; };
+		B10000000000000000000035 /* OpenSauceSans-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Medium.ttf"; sourceTree = "<group>"; };
+		B10000000000000000000036 /* OpenSauceSans-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-SemiBold.ttf"; sourceTree = "<group>"; };
+		B10000000000000000000037 /* OpenSauceSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Bold.ttf"; sourceTree = "<group>"; };
+		B10000000000000000000038 /* OpenSauceSans-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Light.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +161,7 @@
 				D10000000000000000000009 /* Views */,
 				D1000000000000000000000E /* Utilities */,
 				D1000000000000000000000F /* Components */,
+				D10000000000000000000016 /* Resources */,
 				B10000000000000000000021 /* Assets.xcassets */,
 				B10000000000000000000022 /* Info.plist */,
 				B10000000000000000000040 /* Curated.entitlements */,
@@ -342,6 +353,26 @@
 			path = Notifications;
 			sourceTree = "<group>";
 		};
+		D10000000000000000000016 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000017 /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000017 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000034 /* OpenSauceSans-Regular.ttf */,
+				B10000000000000000000035 /* OpenSauceSans-Medium.ttf */,
+				B10000000000000000000036 /* OpenSauceSans-SemiBold.ttf */,
+				B10000000000000000000037 /* OpenSauceSans-Bold.ttf */,
+				B10000000000000000000038 /* OpenSauceSans-Light.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -401,6 +432,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000021 /* Assets.xcassets in Resources */,
+				A10000000000000000000032 /* OpenSauceSans-Regular.ttf in Resources */,
+				A10000000000000000000033 /* OpenSauceSans-Medium.ttf in Resources */,
+				A10000000000000000000034 /* OpenSauceSans-SemiBold.ttf in Resources */,
+				A10000000000000000000035 /* OpenSauceSans-Bold.ttf in Resources */,
+				A10000000000000000000036 /* OpenSauceSans-Light.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
