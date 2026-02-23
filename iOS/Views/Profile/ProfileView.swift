@@ -89,7 +89,9 @@ struct ProfileView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSettings) {
+        .sheet(isPresented: $showSettings, onDismiss: {
+            Task { await viewModel.load() }
+        }) {
             if let profile = viewModel.profile,
                let settingsVM = appState.makeSettingsViewModel() {
                 SettingsView(
