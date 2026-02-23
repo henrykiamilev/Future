@@ -8,6 +8,7 @@ struct ProfileView: View {
     @State private var showFollowList = false
     @State private var followListPath = NavigationPath()
     @State private var showArchiveForSignature = false
+    @State private var showCuratedPage = false
 
     private var theme: ProfileTheme {
         guard let slug = viewModel.profile?.profileTheme else { return .default }
@@ -100,6 +101,14 @@ struct ProfileView: View {
                 )
             }
         }
+        .sheet(isPresented: $showCuratedPage) {
+            CuratedPageView(
+                viewModel: appState.makeCuratedPageViewModel(
+                    userID: viewModel.userID,
+                    isOwnProfile: viewModel.isOwnProfile
+                )
+            )
+        }
         .task {
             await viewModel.load()
         }
@@ -135,6 +144,15 @@ struct ProfileView: View {
             Text(viewModel.username)
                 .font(Theme.titleFont)
                 .foregroundColor(theme.textPrimary)
+
+            // "curated" button — opens the personal identity page
+            Button {
+                showCuratedPage = true
+            } label: {
+                Text("curated")
+                    .font(Theme.captionFont)
+                    .foregroundColor(theme.accent)
+            }
 
             // Streak badge (non-own profiles with active streak)
             if !viewModel.isOwnProfile && viewModel.streakCount > 0 {

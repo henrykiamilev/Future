@@ -448,6 +448,26 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Curated Page Endpoints
+
+extension APIEndpoint {
+    static func getCuratedPage(userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_curated_page",
+            method: .POST,
+            body: RPCUserID(p_user_id: userID.uuidString)
+        )
+    }
+
+    static func upsertCuratedPage(_ update: CuratedPageUpdate) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/upsert_curated_page",
+            method: .POST,
+            body: update
+        )
+    }
+}
+
 // MARK: - Onboarding Endpoints
 
 extension APIEndpoint {
@@ -613,4 +633,19 @@ private struct RPCOtherUser: Encodable, Sendable {
 
 private struct RPCMinStreak: Encodable, Sendable {
     let p_min_streak: Int
+}
+
+struct CuratedPageUpdate: Encodable, Sendable {
+    let p_image_1: String?
+    let p_image_2: String?
+    let p_image_3: String?
+    let p_image_4: String?
+    let p_q1_prompt: String?
+    let p_q1_answer: String?
+    let p_q2_prompt: String?
+    let p_q2_answer: String?
+    let p_q3_prompt: String?
+    let p_q3_answer: String?
+    let p_q4_prompt: String?
+    let p_q4_answer: String?
 }

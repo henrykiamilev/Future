@@ -106,6 +106,9 @@
 \echo '>>> 024: Streaks (connection chains between users)'
 \i ../functions/024_streaks.sql
 
+\echo '>>> 025: Curated page (personal identity page)'
+\i ../functions/025_curated_page.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

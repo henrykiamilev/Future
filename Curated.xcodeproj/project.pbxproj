@@ -62,6 +62,9 @@
 		A10000000000000000000035 /* OpenSauceSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* OpenSauceSans-Bold.ttf */; };
 		A10000000000000000000036 /* OpenSauceSans-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* OpenSauceSans-Light.ttf */; };
 		A10000000000000000000037 /* DarkroomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000039 /* DarkroomView.swift */; };
+		A10000000000000000000038 /* CuratedPageViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003A /* CuratedPageViewModel.swift */; };
+		A10000000000000000000039 /* CuratedPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003B /* CuratedPageView.swift */; };
+		A1000000000000000000003A /* CuratedPageEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003C /* CuratedPageEditView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -123,6 +126,9 @@
 		B10000000000000000000037 /* OpenSauceSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Bold.ttf"; sourceTree = "<group>"; };
 		B10000000000000000000038 /* OpenSauceSans-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "OpenSauceSans-Light.ttf"; sourceTree = "<group>"; };
 		B10000000000000000000039 /* DarkroomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarkroomView.swift; sourceTree = "<group>"; };
+		B1000000000000000000003A /* CuratedPageViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratedPageViewModel.swift; sourceTree = "<group>"; };
+		B1000000000000000000003B /* CuratedPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratedPageView.swift; sourceTree = "<group>"; };
+		B1000000000000000000003C /* CuratedPageEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratedPageEditView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -229,6 +235,7 @@
 				B10000000000000000000029 /* PostDetailViewModel.swift */,
 				B1000000000000000000002A /* SearchViewModel.swift */,
 				B10000000000000000000031 /* NotificationViewModel.swift */,
+				B1000000000000000000003A /* CuratedPageViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -312,6 +319,8 @@
 				B10000000000000000000019 /* ProfileView.swift */,
 				B1000000000000000000001A /* ArchiveView.swift */,
 				B1000000000000000000002D /* FollowListView.swift */,
+				B1000000000000000000003B /* CuratedPageView.swift */,
+				B1000000000000000000003C /* CuratedPageEditView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -499,6 +508,9 @@
 				A10000000000000000000030 /* NotificationView.swift in Sources */,
 				A10000000000000000000031 /* ReactionPicker.swift in Sources */,
 				A10000000000000000000037 /* DarkroomView.swift in Sources */,
+				A10000000000000000000038 /* CuratedPageViewModel.swift in Sources */,
+				A10000000000000000000039 /* CuratedPageView.swift in Sources */,
+				A1000000000000000000003A /* CuratedPageEditView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

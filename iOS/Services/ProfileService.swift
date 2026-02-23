@@ -16,6 +16,8 @@ protocol ProfileServiceProtocol: Sendable {
     func completeOnboarding(userID: UUID) async throws
     func getStreakWith(userID: UUID) async throws -> StreakInfo?
     func getMyStreaks() async throws -> [StreakPartner]
+    func getCuratedPage(userID: UUID) async throws -> CuratedPage?
+    func upsertCuratedPage(_ update: CuratedPageUpdate) async throws
 }
 
 struct StreakInfo: Decodable, Sendable {
@@ -31,6 +33,41 @@ struct StreakPartner: Decodable, Identifiable, Sendable {
     let longestStreak: Int
 
     var id: UUID { partnerId }
+}
+
+// MARK: - Curated Page
+
+struct CuratedPage: Decodable, Sendable {
+    let userId: UUID
+    let username: String
+    let displayName: String?
+    let profilePhotoUrl: String?
+    let instagramHandle: String?
+    let snapchatHandle: String?
+    let image1: String?
+    let image2: String?
+    let image3: String?
+    let image4: String?
+    let q1Prompt: String?
+    let q1Answer: String?
+    let q2Prompt: String?
+    let q2Answer: String?
+    let q3Prompt: String?
+    let q3Answer: String?
+    let q4Prompt: String?
+    let q4Answer: String?
+
+    var images: [String] {
+        [image1, image2, image3, image4].compactMap { $0 }
+    }
+
+    var qaPairs: [(prompt: String, answer: String)] {
+        [(q1Prompt, q1Answer), (q2Prompt, q2Answer), (q3Prompt, q3Answer), (q4Prompt, q4Answer)]
+            .compactMap { prompt, answer in
+                guard let p = prompt, !p.isEmpty, let a = answer, !a.isEmpty else { return nil }
+                return (p, a)
+            }
+    }
 }
 
 struct ArchivePage: Decodable, Sendable {
@@ -115,5 +152,14 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func getMyStreaks() async throws -> [StreakPartner] {
         try await client.request(.getMyStreaks())
+    }
+
+    func getCuratedPage(userID: UUID) async throws -> CuratedPage? {
+        let results: [CuratedPage] = try await client.request(.getCuratedPage(userID: userID))
+        return results.first
+    }
+
+    func upsertCuratedPage(_ update: CuratedPageUpdate) async throws {
+        try await client.requestVoid(.upsertCuratedPage(update))
     }
 }

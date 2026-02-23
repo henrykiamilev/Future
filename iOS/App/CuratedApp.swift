@@ -250,6 +250,15 @@ final class AppState: ObservableObject {
         FollowListViewModel(userID: userID, profileService: profileService)
     }
 
+    func makeCuratedPageViewModel(userID: UUID, isOwnProfile: Bool) -> CuratedPageViewModel {
+        CuratedPageViewModel(
+            userID: userID,
+            isOwnProfile: isOwnProfile,
+            profileService: profileService,
+            imageUploadService: imageUploadService
+        )
+    }
+
     /// Clears all in-memory and URL caches. Called on sign-out to prevent data leaking between accounts.
     func clearAllCaches() {
         cachedFeedVM = nil
