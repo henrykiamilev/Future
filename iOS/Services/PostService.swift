@@ -8,6 +8,9 @@ protocol PostServiceProtocol: Sendable {
     func reportPost(id: UUID, reason: String) async throws
     func addToSignature(postID: UUID) async throws
     func removeFromSignature(postID: UUID) async throws
+    func reactToPost(postID: UUID, emoji: String) async throws
+    func removeReaction(postID: UUID) async throws
+    func getPostReactions(postIDs: [UUID]) async throws -> [ReactionSummary]
 }
 
 final class PostService: PostServiceProtocol, Sendable {
@@ -46,6 +49,25 @@ final class PostService: PostServiceProtocol, Sendable {
     func removeFromSignature(postID: UUID) async throws {
         try await client.requestVoid(.removeSignature(postID: postID))
     }
+
+    func reactToPost(postID: UUID, emoji: String) async throws {
+        try await client.requestVoid(.reactToPost(postID: postID, emoji: emoji))
+    }
+
+    func removeReaction(postID: UUID) async throws {
+        try await client.requestVoid(.removeReaction(postID: postID))
+    }
+
+    func getPostReactions(postIDs: [UUID]) async throws -> [ReactionSummary] {
+        try await client.request(.getPostReactions(postIDs: postIDs))
+    }
+}
+
+struct ReactionSummary: Decodable, Sendable {
+    let postId: UUID
+    let emoji: String
+    let count: Int
+    let userReacted: Bool
 }
 
 private struct LikedCheckResponse: Decodable, Sendable {

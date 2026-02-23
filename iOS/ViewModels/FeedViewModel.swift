@@ -224,6 +224,58 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Reactions
+
+    @Published private(set) var reactionsByPost: [UUID: [ReactionDisplay]] = [:]
+
+    func reactToPost(_ postID: UUID, emoji: String) async {
+        // Check if user already reacted with this emoji — toggle off
+        if let existing = reactionsByPost[postID],
+           existing.contains(where: { $0.emoji == emoji && $0.userReacted }) {
+            do {
+                try await postService.removeReaction(postID: postID)
+                await loadReactions(for: [postID])
+            } catch {
+                #if DEBUG
+                print("[FeedVM] Remove reaction error: \(error)")
+                #endif
+            }
+        } else {
+            do {
+                try await postService.reactToPost(postID: postID, emoji: emoji)
+                await loadReactions(for: [postID])
+            } catch {
+                #if DEBUG
+                print("[FeedVM] React error: \(error)")
+                #endif
+            }
+        }
+    }
+
+    func loadReactions(for postIDs: [UUID]) async {
+        guard !postIDs.isEmpty else { return }
+        do {
+            let summaries = try await postService.getPostReactions(postIDs: postIDs)
+            var grouped: [UUID: [ReactionDisplay]] = [:]
+            for summary in summaries {
+                let display = ReactionDisplay(emoji: summary.emoji, count: summary.count, userReacted: summary.userReacted)
+                grouped[summary.postId, default: []].append(display)
+            }
+            // Merge with existing — update fetched, keep unfetched
+            for (postID, displays) in grouped {
+                reactionsByPost[postID] = displays
+            }
+            // Clear reactions for posts that had none in the response
+            for postID in postIDs where grouped[postID] == nil {
+                reactionsByPost[postID] = nil
+            }
+        } catch {
+            #if DEBUG
+            print("[FeedVM] Load reactions error: \(error)")
+            #endif
+        }
+    }
+
     // MARK: - Report
 
     func reportPost(id: UUID, reason: String) async {

@@ -391,6 +391,34 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Reaction Endpoints
+
+extension APIEndpoint {
+    static func reactToPost(postID: UUID, emoji: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/react_to_post",
+            method: .POST,
+            body: RPCReaction(p_post_id: postID.uuidString, p_emoji: emoji)
+        )
+    }
+
+    static func removeReaction(postID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/remove_reaction",
+            method: .POST,
+            body: RPCPostID(p_post_id: postID.uuidString)
+        )
+    }
+
+    static func getPostReactions(postIDs: [UUID]) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_post_reactions",
+            method: .POST,
+            body: RPCReactionCheck(p_post_ids: postIDs.map(\.uuidString))
+        )
+    }
+}
+
 // MARK: - Onboarding Endpoints
 
 extension APIEndpoint {
@@ -535,4 +563,13 @@ private struct OnboardingComplete: Encodable, Sendable {
 private struct RPCNotifications: Encodable, Sendable {
     let p_cursor: String?
     let p_limit: Int
+}
+
+private struct RPCReaction: Encodable, Sendable {
+    let p_post_id: String
+    let p_emoji: String
+}
+
+private struct RPCReactionCheck: Encodable, Sendable {
+    let p_post_ids: [String]
 }

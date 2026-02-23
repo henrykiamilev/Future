@@ -188,11 +188,16 @@ struct FeedView: View {
                             reportingPostID = post.id
                             showReportSheet = true
                         },
+                        onReactionTapped: { emoji in
+                            Task { await viewModel.reactToPost(post.id, emoji: emoji) }
+                        },
+                        reactions: viewModel.reactionsByPost[post.id] ?? [],
                         authorDestination: post.userID
                     )
                     .task {
                         await viewModel.loadMoreIfNeeded(currentPost: post)
                         viewModel.recordPostSeen(post)
+                        await viewModel.loadReactions(for: [post.id])
                     }
                 }
 

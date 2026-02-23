@@ -5,16 +5,45 @@ struct FeedPostCard: View {
     let post: FeedPost
     let onLikeTapped: () -> Void
     let onReportTapped: () -> Void
+    let onReactionTapped: (String) -> Void
+    let reactions: [ReactionDisplay]
     let authorDestination: UUID
+
+    @State private var showReactionPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             authorRow
             postImage
             actionsRow
+            if !reactions.isEmpty {
+                ReactionBar(reactions: reactions) { emoji in
+                    onReactionTapped(emoji)
+                }
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.bottom, Theme.spacingXS)
+            }
             tagsRow
         }
         .background(Theme.surface)
+        .overlay(alignment: .bottomLeading) {
+            if showReactionPicker {
+                ReactionPicker(
+                    onReact: { emoji in
+                        showReactionPicker = false
+                        onReactionTapped(emoji)
+                    },
+                    onDismiss: { showReactionPicker = false }
+                )
+                .padding(.leading, Theme.spacingM)
+                .padding(.bottom, 60)
+                .transition(.scale(scale: 0.8, anchor: .bottomLeading).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: showReactionPicker)
+        .onTapGesture {
+            if showReactionPicker { showReactionPicker = false }
+        }
     }
 
     // MARK: - Author Row
@@ -94,7 +123,7 @@ struct FeedPostCard: View {
 
     private var actionsRow: some View {
         HStack(spacing: Theme.spacingM) {
-            // Like button
+            // Like button — tap to like, long-press for reactions
             Button(action: onLikeTapped) {
                 HStack(spacing: Theme.spacingXS) {
                     Image(systemName: post.isLiked ? "heart.fill" : "heart")
@@ -109,6 +138,12 @@ struct FeedPostCard: View {
                 }
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4)
+                    .onEnded { _ in
+                        showReactionPicker = true
+                    }
+            )
 
             Spacer()
         }

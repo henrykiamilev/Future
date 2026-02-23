@@ -97,6 +97,9 @@
 \echo '>>> 021: Notifications (table, triggers, RPCs)'
 \i ../functions/021_notifications.sql
 
+\echo '>>> 022: Reactions (emoji reactions on posts)'
+\i ../functions/022_reactions.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================
