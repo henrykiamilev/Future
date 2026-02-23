@@ -9,7 +9,6 @@ protocol ProfileServiceProtocol: Sendable {
     func updateVisibility(_ visibility: User.AccountVisibility, userID: UUID) async throws
     func updateCommentsEnabled(_ enabled: Bool, userID: UUID) async throws
     func updateProfilePhoto(url: String, userID: UUID) async throws
-    func updateProfileTheme(_ theme: String, userID: UUID) async throws
     func getFollowers(userID: UUID) async throws -> [UserSummary]
     func getFollowing(userID: UUID) async throws -> [UserSummary]
     func deleteAccount() async throws
@@ -123,10 +122,6 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func updateProfilePhoto(url: String, userID: UUID) async throws {
         try await client.requestVoid(.updateProfilePhoto(url: url, userID: userID))
-    }
-
-    func updateProfileTheme(_ theme: String, userID: UUID) async throws {
-        try await client.requestVoid(.updateProfileTheme(theme, userID: userID))
     }
 
     func getFollowers(userID: UUID) async throws -> [UserSummary] {

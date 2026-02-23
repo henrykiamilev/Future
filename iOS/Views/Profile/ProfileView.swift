@@ -10,11 +10,6 @@ struct ProfileView: View {
     @State private var showArchiveForSignature = false
     @State private var showCuratedPage = false
 
-    private var theme: ProfileTheme {
-        guard let slug = viewModel.profile?.profileTheme else { return .default }
-        return ProfileTheme(rawValue: slug) ?? .default
-    }
-
     private func signatureTileSize(for width: CGFloat) -> CGFloat {
         (width - 48 - 16) / 3
     }
@@ -75,7 +70,7 @@ struct ProfileView: View {
                 }
             }
         }
-        .background(theme.background)
+        .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if viewModel.isOwnProfile {
@@ -85,7 +80,7 @@ struct ProfileView: View {
                     } label: {
                         Image(systemName: "gearshape")
                             .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(theme.textPrimary)
+                            .foregroundColor(Theme.textPrimary)
                     }
                 }
             }
@@ -143,7 +138,7 @@ struct ProfileView: View {
             // Username
             Text(viewModel.username)
                 .font(Theme.titleFont)
-                .foregroundColor(theme.textPrimary)
+                .foregroundColor(Theme.textPrimary)
 
             // "curated" button — opens the personal identity page
             Button {
@@ -151,7 +146,7 @@ struct ProfileView: View {
             } label: {
                 Text("curated")
                     .font(Theme.captionFont)
-                    .foregroundColor(theme.accent)
+                    .foregroundColor(Theme.accent)
             }
 
             // Streak badge (non-own profiles with active streak)
@@ -182,10 +177,10 @@ struct ProfileView: View {
         } label: {
             Text(followButtonLabel)
                 .font(Theme.headlineFont)
-                .foregroundColor(viewModel.isFollowing ? theme.textSecondary : .white)
+                .foregroundColor(viewModel.isFollowing ? Theme.textSecondary : .white)
                 .padding(.horizontal, Theme.spacingL)
                 .padding(.vertical, Theme.spacingS)
-                .background(viewModel.isFollowing ? theme.background : theme.accent)
+                .background(viewModel.isFollowing ? Theme.background : Theme.accent)
                 .cornerRadius(Theme.radiusM)
                 .overlay {
                     if viewModel.isFollowing {
@@ -248,11 +243,11 @@ struct ProfileView: View {
         VStack(spacing: 2) {
             Text(formatStat(value))
                 .font(Theme.statNumberFont)
-                .foregroundColor(theme.textPrimary)
+                .foregroundColor(Theme.textPrimary)
 
             Text(label)
                 .font(Theme.statLabelFont)
-                .foregroundColor(tappable ? theme.accent : theme.textSecondary)
+                .foregroundColor(tappable ? Theme.accent : Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -357,13 +352,13 @@ struct ProfileView: View {
             VStack(spacing: Theme.spacingS) {
                 Image(systemName: "star")
                     .font(.system(size: 24, weight: .light))
-                    .foregroundColor(theme.textSecondary)
+                    .foregroundColor(Theme.textSecondary)
                 Text("Pin your best posts")
                     .font(Theme.captionFont)
-                    .foregroundColor(theme.textSecondary)
+                    .foregroundColor(Theme.textSecondary)
                 Text("Open Archive to select up to 3")
                     .font(Theme.captionFont)
-                    .foregroundColor(theme.textSecondary)
+                    .foregroundColor(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
@@ -374,7 +369,7 @@ struct ProfileView: View {
     private var emptySignaturePlaceholder: some View {
         Text("No signature posts yet")
             .font(Theme.captionFont)
-            .foregroundColor(theme.textSecondary)
+            .foregroundColor(Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
     }
@@ -424,7 +419,7 @@ struct ProfileView: View {
     private var emptyLivePlaceholder: some View {
         Text("No live posts")
             .font(Theme.captionFont)
-            .foregroundColor(theme.textSecondary)
+            .foregroundColor(Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
     }
@@ -443,7 +438,7 @@ struct ProfileView: View {
                     Text("Archive")
                         .font(Theme.headlineFont)
                 }
-                .foregroundColor(theme.textSecondary)
+                .foregroundColor(Theme.textSecondary)
                 .padding(.vertical, Theme.spacingS)
             }
             .padding(.top, Theme.spacingM)
@@ -458,7 +453,7 @@ struct ProfileView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(Theme.sectionHeaderFont)
-            .foregroundColor(theme.textSecondary)
+            .foregroundColor(Theme.textSecondary)
             .tracking(1.5)
             .padding(.horizontal, Theme.spacingL)
     }
@@ -491,10 +486,10 @@ struct ProfileView: View {
                 .foregroundColor(.orange)
             Text("\(viewModel.streakCount)")
                 .font(Theme.headlineFont)
-                .foregroundColor(theme.textPrimary)
+                .foregroundColor(Theme.textPrimary)
             Text(viewModel.streakCount == 1 ? "day streak" : "day streak")
                 .font(Theme.captionFont)
-                .foregroundColor(theme.textSecondary)
+                .foregroundColor(Theme.textSecondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

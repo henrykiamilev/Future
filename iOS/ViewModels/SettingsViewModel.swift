@@ -18,7 +18,6 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var didSignOut = false
     @Published private(set) var isUploadingPhoto = false
     @Published var profilePhotoURL: String?
-    @Published var profileTheme: ProfileTheme = .default
 
     // MARK: - Dependencies
 
@@ -49,7 +48,6 @@ final class SettingsViewModel: ObservableObject {
         visibility = profile.visibility
         commentsEnabled = profile.commentsEnabled
         profilePhotoURL = profile.profilePhotoURL
-        profileTheme = ProfileTheme(rawValue: profile.profileTheme) ?? .default
     }
 
     // MARK: - Save Profile
@@ -147,20 +145,6 @@ final class SettingsViewModel: ObservableObject {
         }
 
         isUploadingPhoto = false
-    }
-
-    // MARK: - Profile Theme
-
-    func updateTheme(_ theme: ProfileTheme) async {
-        let previous = profileTheme
-        profileTheme = theme
-
-        do {
-            try await profileService.updateProfileTheme(theme.rawValue, userID: currentUserID)
-        } catch {
-            profileTheme = previous
-            self.error = error.localizedDescription
-        }
     }
 
     // MARK: - Delete Account

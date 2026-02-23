@@ -48,7 +48,6 @@ struct UserProfile: Decodable, Sendable {
     let followIsPending: Bool
     let isOwnProfile: Bool
     let onboardingCompletedAt: Date?
-    let profileTheme: String
     let signaturePosts: [PostSummary]
     let livePosts: [PostSummary]
 
@@ -60,7 +59,7 @@ struct UserProfile: Decodable, Sendable {
         case totalLikes, followerCount, followingCount
         case commentsEnabled
         case isFollowing, isFollower, followIsPending, isOwnProfile
-        case onboardingCompletedAt, profileTheme
+        case onboardingCompletedAt
         case signaturePosts, livePosts
     }
 
@@ -83,7 +82,6 @@ struct UserProfile: Decodable, Sendable {
         followIsPending = try c.decode(Bool.self, forKey: .followIsPending)
         isOwnProfile = try c.decode(Bool.self, forKey: .isOwnProfile)
         onboardingCompletedAt = try c.decodeIfPresent(Date.self, forKey: .onboardingCompletedAt)
-        profileTheme = (try? c.decode(String.self, forKey: .profileTheme)) ?? "default"
         // Resilient JSONB decoding — fall back to empty arrays if nested data fails
         signaturePosts = (try? c.decode([PostSummary].self, forKey: .signaturePosts)) ?? []
         livePosts = (try? c.decode([PostSummary].self, forKey: .livePosts)) ?? []

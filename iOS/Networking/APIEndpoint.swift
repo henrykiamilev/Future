@@ -354,14 +354,6 @@ extension APIEndpoint {
         )
     }
 
-    static func updateProfileTheme(_ theme: String, userID: UUID) -> APIEndpoint {
-        APIEndpoint(
-            path: "/rest/v1/users",
-            method: .PATCH,
-            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
-            body: ProfileThemeUpdate(profile_theme: theme)
-        )
-    }
 }
 
 // MARK: - Push Notification Endpoints
@@ -598,10 +590,6 @@ private struct CommentsEnabledUpdate: Encodable, Sendable {
 
 private struct ProfilePhotoUpdate: Encodable, Sendable {
     let profile_photo_url: String
-}
-
-private struct ProfileThemeUpdate: Encodable, Sendable {
-    let profile_theme: String
 }
 
 private struct RPCPushToken: Encodable, Sendable {
