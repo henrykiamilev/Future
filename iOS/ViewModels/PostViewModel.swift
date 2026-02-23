@@ -8,7 +8,8 @@ import AVFoundation
 //
 // State machine:
 //   .needsPermission → .camera → .preview → .tagging → .uploading → .success
-//                                   ↑                                    │
+//                                   ↑  ↕                                 │
+//                                   │ .editing (optional Darkroom)       │
 //                                   └────────── .error ←─────────────────┘
 //
 // Wires the full pipeline:
@@ -30,6 +31,7 @@ final class PostViewModel: ObservableObject {
         case needsPermission
         case camera
         case preview
+        case editing
         case tagging
         case uploading(progress: Double)
         case success(nextAllowedAt: Date)
@@ -40,6 +42,7 @@ final class PostViewModel: ObservableObject {
             case (.needsPermission, .needsPermission): return true
             case (.camera, .camera): return true
             case (.preview, .preview): return true
+            case (.editing, .editing): return true
             case (.tagging, .tagging): return true
             case (.uploading(let a), .uploading(let b)): return a == b
             case (.success(let a), .success(let b)): return a == b
@@ -114,6 +117,19 @@ final class PostViewModel: ObservableObject {
         tagURL = ""
         state = .camera
         camera.start()
+    }
+
+    func openDarkroom() {
+        state = .editing
+    }
+
+    func finishEditing(editedImage: UIImage) {
+        capturedImage = editedImage
+        state = .preview
+    }
+
+    func cancelEditing() {
+        state = .preview
     }
 
     func proceedToTagging() {

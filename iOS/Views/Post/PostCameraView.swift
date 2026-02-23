@@ -15,6 +15,14 @@ struct PostCameraView: View {
                 cameraView
             case .preview:
                 previewView
+            case .editing:
+                if let image = viewModel.capturedImage {
+                    DarkroomView(
+                        originalImage: image,
+                        onDone: { edited in viewModel.finishEditing(editedImage: edited) },
+                        onCancel: { viewModel.cancelEditing() }
+                    )
+                }
             case .tagging:
                 tagView
             case .uploading(let progress):
@@ -167,6 +175,18 @@ struct PostCameraView: View {
                 }
                 .font(Theme.headlineFont)
                 .foregroundColor(Theme.textSecondary)
+
+                Button {
+                    viewModel.openDarkroom()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 13))
+                        Text("Edit")
+                    }
+                    .font(Theme.headlineFont)
+                    .foregroundColor(Theme.textPrimary)
+                }
 
                 Button("Next") {
                     viewModel.proceedToTagging()
