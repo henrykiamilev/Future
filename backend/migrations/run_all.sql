@@ -100,6 +100,9 @@
 \echo '>>> 022: Reactions (emoji reactions on posts)'
 \i ../functions/022_reactions.sql
 
+\echo '>>> 023: Profile themes (user-selectable color themes)'
+\i ../functions/023_profile_themes.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

@@ -15,6 +15,7 @@ struct SettingsView: View {
                     avatarHeader
                     profileFieldsCard
                     socialLinksCard
+                    themeCard
                     postPreferencesCard
                     accountCard
                     dangerZone
@@ -190,6 +191,63 @@ struct SettingsView: View {
             }
 
             Text("Tapping your handle on your profile will open the app directly.")
+                .font(Theme.captionFont)
+                .foregroundColor(Theme.textTertiary)
+                .padding(.top, Theme.spacingS)
+                .padding(.horizontal, Theme.spacingXS)
+        }
+    }
+
+    // MARK: - Theme Card
+
+    private var themeCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            cardHeader("Profile Theme")
+
+            VStack(spacing: Theme.spacingS) {
+                ForEach(ProfileTheme.allCases, id: \.rawValue) { theme in
+                    Button {
+                        Task { await viewModel.updateTheme(theme) }
+                    } label: {
+                        HStack(spacing: Theme.spacingM) {
+                            // Color preview swatch
+                            HStack(spacing: 0) {
+                                Circle()
+                                    .fill(theme.background)
+                                    .frame(width: 20, height: 20)
+                                Circle()
+                                    .fill(theme.accent)
+                                    .frame(width: 20, height: 20)
+                                    .offset(x: -6)
+                            }
+
+                            Text(theme.displayName)
+                                .font(Theme.bodyFont)
+                                .foregroundColor(Theme.textPrimary)
+
+                            Spacer()
+
+                            if viewModel.profileTheme == theme {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Theme.accent)
+                            }
+                        }
+                        .padding(.horizontal, Theme.spacingM)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, Theme.spacingXS)
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.radiusL)
+                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
+            }
+
+            Text("Changes how your profile looks to everyone.")
                 .font(Theme.captionFont)
                 .foregroundColor(Theme.textTertiary)
                 .padding(.top, Theme.spacingS)

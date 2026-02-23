@@ -9,6 +9,11 @@ struct ProfileView: View {
     @State private var followListPath = NavigationPath()
     @State private var showArchiveForSignature = false
 
+    private var theme: ProfileTheme {
+        guard let slug = viewModel.profile?.profileTheme else { return .default }
+        return ProfileTheme(rawValue: slug) ?? .default
+    }
+
     private func signatureTileSize(for width: CGFloat) -> CGFloat {
         (width - 48 - 16) / 3
     }
@@ -69,7 +74,7 @@ struct ProfileView: View {
                 }
             }
         }
-        .background(Theme.background)
+        .background(theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if viewModel.isOwnProfile {
@@ -79,7 +84,7 @@ struct ProfileView: View {
                     } label: {
                         Image(systemName: "gearshape")
                             .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(theme.textPrimary)
                     }
                 }
             }
@@ -127,7 +132,7 @@ struct ProfileView: View {
             // Username
             Text(viewModel.username)
                 .font(Theme.titleFont)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(theme.textPrimary)
 
             // Social links (Instagram / Snapchat deep link buttons)
             SocialLinksRow(
@@ -152,10 +157,10 @@ struct ProfileView: View {
         } label: {
             Text(followButtonLabel)
                 .font(Theme.headlineFont)
-                .foregroundColor(viewModel.isFollowing ? Theme.textSecondary : .white)
+                .foregroundColor(viewModel.isFollowing ? theme.textSecondary : .white)
                 .padding(.horizontal, Theme.spacingL)
                 .padding(.vertical, Theme.spacingS)
-                .background(viewModel.isFollowing ? Theme.background : Theme.accent)
+                .background(viewModel.isFollowing ? theme.background : theme.accent)
                 .cornerRadius(Theme.radiusM)
                 .overlay {
                     if viewModel.isFollowing {
@@ -218,11 +223,11 @@ struct ProfileView: View {
         VStack(spacing: 2) {
             Text(formatStat(value))
                 .font(Theme.statNumberFont)
-                .foregroundColor(Theme.textPrimary)
+                .foregroundColor(theme.textPrimary)
 
             Text(label)
                 .font(Theme.statLabelFont)
-                .foregroundColor(tappable ? Theme.accent : Theme.textTertiary)
+                .foregroundColor(tappable ? theme.accent : theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -413,7 +418,7 @@ struct ProfileView: View {
                     Text("Archive")
                         .font(Theme.headlineFont)
                 }
-                .foregroundColor(Theme.textSecondary)
+                .foregroundColor(theme.textSecondary)
                 .padding(.vertical, Theme.spacingS)
             }
             .padding(.top, Theme.spacingM)
@@ -428,7 +433,7 @@ struct ProfileView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(Theme.sectionHeaderFont)
-            .foregroundColor(Theme.textTertiary)
+            .foregroundColor(theme.textSecondary)
             .tracking(1.5)
             .padding(.horizontal, Theme.spacingL)
     }

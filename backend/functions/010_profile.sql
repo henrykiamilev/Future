@@ -24,6 +24,7 @@ RETURNS TABLE (
     is_own_profile BOOLEAN,
     comments_enabled BOOLEAN,
     onboarding_completed_at TIMESTAMPTZ,
+    profile_theme TEXT,
     signature_posts JSONB,
     live_posts JSONB
 ) AS $$
@@ -65,6 +66,7 @@ BEGIN
         (u.id = v_viewer_id) AS is_own_profile,
         u.comments_enabled,
         u.onboarding_completed_at,
+        u.profile_theme,
         -- Signature posts (max 3)
         COALESCE(
             (SELECT jsonb_agg(sig ORDER BY created_at DESC)
