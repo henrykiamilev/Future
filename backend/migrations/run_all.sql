@@ -3,7 +3,14 @@
 -- ============================================================================
 -- Run this file against a Supabase PostgreSQL database.
 -- Supabase provides: auth.uid(), pg_cron, Storage, Edge Functions.
+--
+-- DEPENDENCY ORDER:
+--   schema → policies → core functions → tables (feed_v2) → functions that
+--   depend on those tables (015_discover, 016_relationship, 017_record)
+--   → security migrations → trigger RLS fix
 -- ============================================================================
+
+-- ── SCHEMA ───────────────────────────────────────────────────────────────────
 
 \echo '>>> 001: Core tables, indexes, constraints'
 \i ../schema/001_core_tables.sql
@@ -11,8 +18,18 @@
 \echo '>>> 002: Triggers & enforcement'
 \i ../schema/002_triggers.sql
 
-\echo '>>> 003: Row Level Security policies'
+\echo '>>> 003: Comments & search schema'
+\i ../schema/003_comments_and_search.sql
+
+\echo '>>> 004: Auth trigger (handle_new_user)'
+\i ../schema/004_auth_trigger.sql
+
+-- ── POLICIES ─────────────────────────────────────────────────────────────────
+
+\echo '>>> 003p: Row Level Security policies'
 \i ../policies/003_rls_policies.sql
+
+-- ── CORE FUNCTIONS (no cross-dependencies) ──────────────────────────────────
 
 \echo '>>> 004: Expiration logic'
 \i ../functions/004_expiration.sql
@@ -35,17 +52,44 @@
 \echo '>>> 010: Profile queries'
 \i ../functions/010_profile.sql
 
-\echo '>>> 015: Discover'
-\i ../functions/015_discover.sql
+\echo '>>> 011: Search users'
+\i ../functions/011_search_users.sql
 
-\echo '>>> 016: Relationship strength'
-\i ../functions/016_relationship_strength.sql
+\echo '>>> 012: Comments'
+\i ../functions/012_comments.sql
 
-\echo '>>> 017: Feed v2 migration (tables + RLS)'
+\echo '>>> 013: Followers list'
+\i ../functions/013_followers_list.sql
+
+\echo '>>> 014: Delete account'
+\i ../functions/014_delete_account.sql
+
+-- ── FEED V2 TABLES (must come BEFORE 015/016 which reference these tables) ──
+
+\echo '>>> 017: Feed v2 migration (tables + RLS for relationship_strength, daily_feed_state)'
 \i ../migrations/017_feed_v2.sql
 
-\echo '>>> 017b: Record consumption'
+-- ── FUNCTIONS THAT DEPEND ON FEED V2 TABLES ─────────────────────────────────
+
+\echo '>>> 015: Discover (depends on feed_scores from 007)'
+\i ../functions/015_discover.sql
+
+\echo '>>> 016: Relationship strength (depends on relationship_strength from 017)'
+\i ../functions/016_relationship_strength.sql
+
+\echo '>>> 017b: Record consumption (depends on daily_feed_state from 017)'
 \i ../functions/017_record_consumption.sql
+
+-- ── SECURITY & STORAGE MIGRATIONS ───────────────────────────────────────────
+
+\echo '>>> 016m: Security hardening'
+\i ../migrations/016_security_hardening.sql
+
+\echo '>>> 018: Private storage policies'
+\i ../migrations/018_private_storage.sql
+
+\echo '>>> 019: Fix trigger RLS (SECURITY DEFINER + recount)'
+\i ../migrations/019_fix_trigger_rls.sql
 
 \echo '>>> All migrations complete.'
 

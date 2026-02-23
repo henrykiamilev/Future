@@ -49,8 +49,9 @@ CREATE TABLE IF NOT EXISTS relationship_strength (
 
 CREATE INDEX IF NOT EXISTS idx_rs_user_a ON relationship_strength (user_a);
 CREATE INDEX IF NOT EXISTS idx_rs_user_b ON relationship_strength (user_b);
-CREATE INDEX IF NOT EXISTS idx_rs_updated ON relationship_strength (updated_at)
-    WHERE updated_at > now() - INTERVAL '2 hours';
+-- Plain B-tree (no partial index) — now() freezes at creation time, making
+-- partial indexes with now() useless after the interval elapses.
+CREATE INDEX IF NOT EXISTS idx_rs_updated ON relationship_strength (updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS daily_feed_state (
     user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -217,6 +218,18 @@ BEGIN
                 SET likes_a_to_b = GREATEST(0, likes_a_to_b - 1),
                     updated_at = now()
                 WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'comment' THEN
+                UPDATE relationship_strength
+                SET comments_a_to_b = GREATEST(0, comments_a_to_b - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'profile_view' THEN
+                UPDATE relationship_strength
+                SET profile_views_a_to_b = GREATEST(0, profile_views_a_to_b - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            ELSE
+                NULL; -- Unknown signal type — ignore silently
         END CASE;
     ELSE
         CASE p_signal_type
@@ -225,6 +238,18 @@ BEGIN
                 SET likes_b_to_a = GREATEST(0, likes_b_to_a - 1),
                     updated_at = now()
                 WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'comment' THEN
+                UPDATE relationship_strength
+                SET comments_b_to_a = GREATEST(0, comments_b_to_a - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'profile_view' THEN
+                UPDATE relationship_strength
+                SET profile_views_b_to_a = GREATEST(0, profile_views_b_to_a - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            ELSE
+                NULL; -- Unknown signal type — ignore silently
         END CASE;
     END IF;
 END;
@@ -649,7 +674,11 @@ SET search_path = public, pg_temp;
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION trg_like_count_increment()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     v_author_id UUID;
 BEGIN
@@ -665,11 +694,15 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 CREATE OR REPLACE FUNCTION trg_like_count_decrement()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
     v_author_id UUID;
 BEGIN
@@ -685,11 +718,15 @@ BEGIN
 
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 CREATE OR REPLACE FUNCTION trg_follow_count_change()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
     IF TG_OP = 'INSERT' AND NEW.is_approved = TRUE THEN
         UPDATE users SET following_count = following_count + 1, updated_at = now()
@@ -717,7 +754,7 @@ BEGIN
         RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 -- ============================================================================

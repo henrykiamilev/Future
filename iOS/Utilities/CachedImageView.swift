@@ -185,13 +185,18 @@ struct CachedImageView<Placeholder: View>: View {
                 var (data, response) = try await ImageCache.shared.session.data(for: request)
                 guard !Task.isCancelled else { return }
 
-                // 401 retry: refresh token and retry once
+                // 401 retry: wait briefly for token refresh (triggered elsewhere), then retry
                 if let httpResponse = response as? HTTPURLResponse,
                    httpResponse.statusCode == 401 {
                     #if DEBUG
-                    print("[ImageCache] 401 — refreshing token and retrying \(url.lastPathComponent)")
+                    print("[ImageCache] 401 — waiting for token refresh and retrying \(url.lastPathComponent)")
                     #endif
-                    let retryRequest = ImageCache.shared.authenticatedRequest(for: url)
+                    // Brief delay to allow concurrent token refresh to complete
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                    guard !Task.isCancelled else { return }
+                    // Rebuild request with (hopefully) refreshed token, bypass cache
+                    var retryRequest = ImageCache.shared.authenticatedRequest(for: url)
+                    retryRequest.cachePolicy = .reloadIgnoringLocalCacheData
                     (data, response) = try await ImageCache.shared.session.data(for: retryRequest)
                     guard !Task.isCancelled else { return }
                 }
@@ -215,7 +220,10 @@ struct CachedImageView<Placeholder: View>: View {
                     return
                 }
 
-                let scale = UIScreen.main.scale
+                // Use trait collection scale from main actor; fall back to 3.0 (modern iPhones)
+                let scale: CGFloat = await MainActor.run {
+                    UITraitCollection.current.displayScale > 0 ? UITraitCollection.current.displayScale : 3.0
+                }
                 let size = targetSize
                 let decoded: UIImage? = await Task.detached(priority: .utility) {
                     downsample(data: data, to: size, scale: scale)

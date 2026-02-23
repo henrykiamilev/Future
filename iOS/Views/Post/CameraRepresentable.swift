@@ -71,12 +71,15 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     private var activeContinuation: CheckedContinuation<UIImage, Error>?
 
     deinit {
-        // Fail any outstanding continuation to prevent a leaked coroutine.
-        // This avoids a crash if the coordinator is deallocated while a capture is in-flight.
-        if let continuation = activeContinuation {
-            activeContinuation = nil
-            continuation.resume(throwing: CameraError.sessionNotRunning)
+        // Remove notification observers to prevent leaks and duplicate registrations
+        NotificationCenter.default.removeObserver(self)
+
+        // Fail any outstanding continuation on the session queue to avoid data races.
+        // Use sync to ensure continuation is resolved before deallocation completes.
+        sessionQueue.sync { [activeContinuation] in
+            activeContinuation?.resume(throwing: CameraError.sessionNotRunning)
         }
+        self.activeContinuation = nil
         captureSession.stopRunning()
     }
 
@@ -86,6 +89,10 @@ final class CameraCoordinator: NSObject, ObservableObject, AVCapturePhotoCapture
     func start() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
+
+            // Remove any existing observers to prevent duplicates on repeated start()
+            NotificationCenter.default.removeObserver(self, name: .AVCaptureSessionWasInterrupted, object: self.captureSession)
+            NotificationCenter.default.removeObserver(self, name: .AVCaptureSessionRuntimeError, object: self.captureSession)
 
             // Register for session interruption and error notifications
             NotificationCenter.default.addObserver(

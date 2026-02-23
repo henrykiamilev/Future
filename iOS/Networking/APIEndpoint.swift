@@ -445,10 +445,10 @@ private struct RPCFollow: Encodable, Sendable {
 }
 
 struct ProfileUpdate: Encodable, Sendable {
-    var displayName: String?
-    var bio: String?
-    var instagramHandle: String?
-    var snapchatHandle: String?
+    var displayName: String
+    var bio: String
+    var instagramHandle: String
+    var snapchatHandle: String
 
     enum CodingKeys: String, CodingKey {
         case displayName = "display_name"

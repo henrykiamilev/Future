@@ -4,7 +4,7 @@ struct FeedPostCard: View {
 
     let post: FeedPost
     let onLikeTapped: () -> Void
-    let onAuthorTapped: () -> Void
+    let authorDestination: UUID
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -19,7 +19,7 @@ struct FeedPostCard: View {
     // MARK: - Author Row
 
     private var authorRow: some View {
-        Button(action: onAuthorTapped) {
+        NavigationLink(value: authorDestination) {
             HStack(spacing: Theme.spacingS) {
                 CachedImageView(
                     url: SupabaseConfig.storageURL(for: post.authorPhoto ?? ""),
@@ -56,21 +56,23 @@ struct FeedPostCard: View {
 
     private var postImage: some View {
         let aspect = CGFloat(post.imageHeight) / max(1, CGFloat(post.imageWidth))
-        let screenWidth = UIScreen.main.bounds.width
 
-        return NavigationLink(value: post) {
-            CachedImageView(
-                url: SupabaseConfig.storageURL(for: post.imageURL),
-                targetSize: CGSize(width: screenWidth, height: screenWidth * aspect)
-            ) {
-                Rectangle()
-                    .fill(Theme.background)
-                    .overlay { ProgressView().tint(Theme.textTertiary) }
+        return GeometryReader { geometry in
+            NavigationLink(value: post) {
+                CachedImageView(
+                    url: SupabaseConfig.storageURL(for: post.imageURL),
+                    targetSize: CGSize(width: geometry.size.width, height: geometry.size.width * aspect)
+                ) {
+                    Rectangle()
+                        .fill(Theme.background)
+                        .overlay { ProgressView().tint(Theme.textTertiary) }
+                }
+                .aspectRatio(1 / aspect, contentMode: .fit)
+                .clipped()
             }
-            .aspectRatio(1 / aspect, contentMode: .fit)
-            .clipped()
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .aspectRatio(1 / aspect, contentMode: .fit)
     }
 
     // MARK: - Actions Row

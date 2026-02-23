@@ -143,7 +143,7 @@ struct FeedView: View {
                     FeedPostCard(
                         post: post,
                         onLikeTapped: { Task { await viewModel.toggleLike(post: post) } },
-                        onAuthorTapped: { /* Navigate to profile */ }
+                        authorDestination: post.userID
                     )
                     .task {
                         await viewModel.loadMoreIfNeeded(currentPost: post)

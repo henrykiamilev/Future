@@ -220,10 +220,13 @@ struct AuthView: View {
     }
 
     private func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
+        guard length > 0 else { return "" }
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        precondition(errorCode == errSecSuccess)
+        guard errorCode == errSecSuccess else {
+            // Fallback: use UUID-based randomness if SecRandom fails (extremely rare)
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        }
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
         return String(randomBytes.map { charset[Int($0) % charset.count] })
     }

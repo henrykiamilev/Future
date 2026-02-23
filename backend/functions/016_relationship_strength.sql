@@ -129,6 +129,18 @@ BEGIN
                 SET likes_a_to_b = GREATEST(0, likes_a_to_b - 1),
                     updated_at = now()
                 WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'comment' THEN
+                UPDATE relationship_strength
+                SET comments_a_to_b = GREATEST(0, comments_a_to_b - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'profile_view' THEN
+                UPDATE relationship_strength
+                SET profile_views_a_to_b = GREATEST(0, profile_views_a_to_b - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            ELSE
+                NULL; -- Unknown signal type — ignore silently
         END CASE;
     ELSE
         CASE p_signal_type
@@ -137,6 +149,18 @@ BEGIN
                 SET likes_b_to_a = GREATEST(0, likes_b_to_a - 1),
                     updated_at = now()
                 WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'comment' THEN
+                UPDATE relationship_strength
+                SET comments_b_to_a = GREATEST(0, comments_b_to_a - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            WHEN 'profile_view' THEN
+                UPDATE relationship_strength
+                SET profile_views_b_to_a = GREATEST(0, profile_views_b_to_a - 1),
+                    updated_at = now()
+                WHERE user_a = v_a AND user_b = v_b;
+            ELSE
+                NULL; -- Unknown signal type — ignore silently
         END CASE;
     END IF;
 END;

@@ -43,9 +43,11 @@ CREATE TABLE IF NOT EXISTS relationship_strength (
 CREATE INDEX idx_rs_user_a ON relationship_strength (user_a);
 CREATE INDEX idx_rs_user_b ON relationship_strength (user_b);
 
--- Batch job only recomputes recently-changed rows
-CREATE INDEX idx_rs_updated ON relationship_strength (updated_at)
-    WHERE updated_at > now() - INTERVAL '2 hours';
+-- Batch job only recomputes recently-changed rows.
+-- NOTE: Cannot use a partial index with now() — it freezes at creation time.
+-- A plain B-tree on updated_at lets the batch query efficiently find recent rows
+-- via an index range scan: WHERE updated_at > now() - INTERVAL '1 hour'.
+CREATE INDEX IF NOT EXISTS idx_rs_updated ON relationship_strength (updated_at DESC);
 
 -- ============================================================================
 -- DAILY FEED STATE (per-user per-day finite feed tracking)

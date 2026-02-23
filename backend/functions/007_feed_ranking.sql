@@ -112,10 +112,12 @@ BEGIN
     -- ──────────────────────────────────────────────────
     -- Step 3: Remove scores for expired/hidden posts
     -- ──────────────────────────────────────────────────
-    DELETE FROM feed_scores
-    WHERE post_id NOT IN (
-        SELECT id FROM posts
-        WHERE is_hidden = FALSE AND expires_at > now()
+    DELETE FROM feed_scores fs
+    WHERE NOT EXISTS (
+        SELECT 1 FROM posts p
+        WHERE p.id = fs.post_id
+          AND p.is_hidden = FALSE
+          AND p.expires_at > now()
     );
 END;
 $$ LANGUAGE plpgsql;

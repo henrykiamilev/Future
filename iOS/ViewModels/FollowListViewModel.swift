@@ -30,13 +30,29 @@ final class FollowListViewModel: ObservableObject {
         isLoading = true
         error = nil
 
-        do {
-            async let f = profileService.getFollowers(userID: userID)
-            async let g = profileService.getFollowing(userID: userID)
-            followers = try await f
-            following = try await g
-        } catch {
-            self.error = error.localizedDescription
+        // Load independently so one failure doesn't block the other
+        async let f: Result<[UserSummary], Error> = {
+            do { return .success(try await profileService.getFollowers(userID: userID)) }
+            catch { return .failure(error) }
+        }()
+        async let g: Result<[UserSummary], Error> = {
+            do { return .success(try await profileService.getFollowing(userID: userID)) }
+            catch { return .failure(error) }
+        }()
+
+        let followersResult = await f
+        let followingResult = await g
+
+        switch followersResult {
+        case .success(let list): followers = list
+        case .failure(let err): self.error = err.localizedDescription
+        }
+
+        switch followingResult {
+        case .success(let list): following = list
+        case .failure(let err):
+            // Only overwrite error if we didn't already have one
+            if self.error == nil { self.error = err.localizedDescription }
         }
 
         isLoading = false

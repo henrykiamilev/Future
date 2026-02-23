@@ -84,11 +84,12 @@ final class SettingsViewModel: ObservableObject {
         }
 
         do {
+            // Send empty string (not nil) to clear fields — nil omits the key from PATCH
             let update = ProfileUpdate(
-                displayName: trimmedName.isEmpty ? nil : trimmedName,
-                bio: trimmedBio.isEmpty ? nil : trimmedBio,
-                instagramHandle: trimmedIG.isEmpty ? nil : trimmedIG,
-                snapchatHandle: trimmedSnap.isEmpty ? nil : trimmedSnap
+                displayName: trimmedName,
+                bio: trimmedBio,
+                instagramHandle: trimmedIG,
+                snapchatHandle: trimmedSnap
             )
             try await profileService.updateProfile(update, userID: currentUserID)
         } catch {

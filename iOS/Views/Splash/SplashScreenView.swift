@@ -7,6 +7,7 @@ struct SplashScreenView: View {
 
     @State private var player: AVPlayer?
     @State private var fadeOut = false
+    @State private var playbackObserver: NSObjectProtocol?
 
     var body: some View {
         ZStack {
@@ -22,6 +23,13 @@ struct SplashScreenView: View {
         .onAppear {
             setupPlayer()
         }
+        .onDisappear {
+            // Clean up observer to prevent memory leak
+            if let observer = playbackObserver {
+                NotificationCenter.default.removeObserver(observer)
+                playbackObserver = nil
+            }
+        }
     }
 
     private func setupPlayer() {
@@ -35,8 +43,8 @@ struct SplashScreenView: View {
         avPlayer.isMuted = true
         self.player = avPlayer
 
-        // Listen for playback to finish
-        NotificationCenter.default.addObserver(
+        // Listen for playback to finish — store token to remove on disappear
+        playbackObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: avPlayer.currentItem,
             queue: .main

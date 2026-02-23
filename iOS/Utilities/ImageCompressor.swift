@@ -212,7 +212,7 @@ final class ImageCompressor: ImageCompressorProtocol, Sendable {
         }
 
         // If binary search didn't find anything under hard cap, try minimum quality
-        if bestData == nil || bestData!.count > hardCapBytes {
+        if bestData.map({ $0.count > hardCapBytes }) ?? true {
             bestData = autoreleasepool {
                 UIImage(cgImage: cgImage).jpegData(compressionQuality: qualityMin)
             }

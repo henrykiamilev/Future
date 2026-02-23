@@ -29,8 +29,11 @@ struct MainTabView: View {
             FeedView(viewModel: appState.makeFeedViewModel())
                 .navigationDestination(for: FeedPost.self) { post in
                     PostDetailView(
-                        viewModel: appState.makePostDetailViewModel(post: post, commentsEnabled: false)
+                        viewModel: appState.makePostDetailViewModel(post: post, commentsEnabled: true)
                     )
+                }
+                .navigationDestination(for: UUID.self) { userID in
+                    ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
                 }
         }
         .tabItem {

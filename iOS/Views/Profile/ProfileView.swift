@@ -8,8 +8,12 @@ struct ProfileView: View {
     @State private var showFollowList = false
     @State private var followListPath = NavigationPath()
 
-    private let signatureTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3
-    private let liveTileSize: CGFloat = (UIScreen.main.bounds.width - 48 - 16) / 3 * 0.78
+    private func signatureTileSize(for width: CGFloat) -> CGFloat {
+        (width - 48 - 16) / 3
+    }
+    private func liveTileSize(for width: CGFloat) -> CGFloat {
+        (width - 48 - 16) / 3 * 0.78
+    }
 
     var body: some View {
         Group {
@@ -50,15 +54,17 @@ struct ProfileView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                GeometryReader { geometry in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         profileHeader
                         statsRow
-                        signatureSection
-                        liveSection
+                        signatureSection(width: geometry.size.width)
+                        liveSection(width: geometry.size.width)
                         archiveButton
                     }
                     .padding(.bottom, Theme.spacingXXL)
+                }
                 }
             }
         }
@@ -78,9 +84,10 @@ struct ProfileView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            if let profile = viewModel.profile {
+            if let profile = viewModel.profile,
+               let settingsVM = appState.makeSettingsViewModel() {
                 SettingsView(
-                    viewModel: appState.makeSettingsViewModel(),
+                    viewModel: settingsVM,
                     profile: profile
                 )
             }
@@ -222,8 +229,9 @@ struct ProfileView: View {
     // MARK: - Signature Section
     // PRD: — Signature — [ 3 Large Tiles – manually selected ]
 
-    private var signatureSection: some View {
-        VStack(alignment: .leading, spacing: Theme.spacingM) {
+    private func signatureSection(width: CGFloat) -> some View {
+        let tileSize = signatureTileSize(for: width)
+        return VStack(alignment: .leading, spacing: Theme.spacingM) {
             sectionHeader("Signature")
 
             if viewModel.signaturePosts.isEmpty {
@@ -231,12 +239,12 @@ struct ProfileView: View {
             } else {
                 HStack(spacing: Theme.spacingS) {
                     ForEach(viewModel.signaturePosts) { post in
-                        signatureTile(post)
+                        signatureTile(post, size: tileSize)
                     }
 
                     // Empty slots
                     ForEach(0 ..< max(0, 3 - viewModel.signaturePosts.count), id: \.self) { _ in
-                        emptyTile(size: signatureTileSize)
+                        emptyTile(size: tileSize)
                     }
                 }
                 .padding(.horizontal, Theme.spacingL)
@@ -245,14 +253,14 @@ struct ProfileView: View {
         .padding(.bottom, Theme.spacingXL)
     }
 
-    private func signatureTile(_ post: PostSummary) -> some View {
+    private func signatureTile(_ post: PostSummary, size: CGFloat) -> some View {
         CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: signatureTileSize * 2, height: signatureTileSize * 2.5)
+            targetSize: CGSize(width: size * 2, height: size * 2.5)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .frame(width: signatureTileSize, height: signatureTileSize * 1.25)
+        .frame(width: size, height: size * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {
             if post.likeCount > 0 {
@@ -272,8 +280,9 @@ struct ProfileView: View {
     // MARK: - Live Section
     // PRD: — Live — [ 3 Medium Tiles – last 3 active posts ]
 
-    private var liveSection: some View {
-        VStack(alignment: .leading, spacing: Theme.spacingM) {
+    private func liveSection(width: CGFloat) -> some View {
+        let tileSize = liveTileSize(for: width)
+        return VStack(alignment: .leading, spacing: Theme.spacingM) {
             sectionHeader("Live")
 
             if viewModel.livePosts.isEmpty {
@@ -281,11 +290,11 @@ struct ProfileView: View {
             } else {
                 HStack(spacing: Theme.spacingS) {
                     ForEach(viewModel.livePosts) { post in
-                        liveTile(post)
+                        liveTile(post, size: tileSize)
                     }
 
                     ForEach(0 ..< max(0, 3 - viewModel.livePosts.count), id: \.self) { _ in
-                        emptyTile(size: liveTileSize)
+                        emptyTile(size: tileSize)
                     }
                 }
                 .padding(.horizontal, Theme.spacingL)
@@ -294,14 +303,14 @@ struct ProfileView: View {
         .padding(.bottom, Theme.spacingXL)
     }
 
-    private func liveTile(_ post: PostSummary) -> some View {
+    private func liveTile(_ post: PostSummary, size: CGFloat) -> some View {
         CachedImageView(
             url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: liveTileSize * 2, height: liveTileSize * 2.5)
+            targetSize: CGSize(width: size * 2, height: size * 2.5)
         ) {
             Rectangle().fill(Theme.separator)
         }
-        .frame(width: liveTileSize, height: liveTileSize * 1.25)
+        .frame(width: size, height: size * 1.25)
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
         .overlay(alignment: .bottomLeading) {
             if post.likeCount > 0 {

@@ -96,41 +96,49 @@ $$;
 -- --------------------------------------------------------------------------
 -- 3. RECOUNT EXISTING FOLLOWS (fix stale zeros)
 -- --------------------------------------------------------------------------
+-- Use LEFT JOIN so users with zero approved followers/following are also reset.
 UPDATE users u SET
     follower_count = COALESCE(sub.cnt, 0)
 FROM (
-    SELECT following_id AS uid, COUNT(*) AS cnt
-    FROM follows WHERE is_approved = TRUE
-    GROUP BY following_id
+    SELECT u2.id AS uid, COUNT(f.following_id) AS cnt
+    FROM users u2
+    LEFT JOIN follows f ON f.following_id = u2.id AND f.is_approved = TRUE
+    GROUP BY u2.id
 ) sub
 WHERE u.id = sub.uid;
 
 UPDATE users u SET
     following_count = COALESCE(sub.cnt, 0)
 FROM (
-    SELECT follower_id AS uid, COUNT(*) AS cnt
-    FROM follows WHERE is_approved = TRUE
-    GROUP BY follower_id
+    SELECT u2.id AS uid, COUNT(f.follower_id) AS cnt
+    FROM users u2
+    LEFT JOIN follows f ON f.follower_id = u2.id AND f.is_approved = TRUE
+    GROUP BY u2.id
 ) sub
 WHERE u.id = sub.uid;
 
 -- --------------------------------------------------------------------------
 -- 4. RECOUNT EXISTING LIKES (fix stale zeros)
 -- --------------------------------------------------------------------------
+-- Use LEFT JOIN so posts/users with zero likes are also reset.
 UPDATE posts p SET
     like_count = COALESCE(sub.cnt, 0)
 FROM (
-    SELECT post_id, COUNT(*) AS cnt
-    FROM likes GROUP BY post_id
+    SELECT p2.id AS post_id, COUNT(l.post_id) AS cnt
+    FROM posts p2
+    LEFT JOIN likes l ON l.post_id = p2.id
+    GROUP BY p2.id
 ) sub
 WHERE p.id = sub.post_id;
 
 UPDATE users u SET
     total_likes = COALESCE(sub.cnt, 0)
 FROM (
-    SELECT p.user_id AS uid, COUNT(*) AS cnt
-    FROM likes l JOIN posts p ON p.id = l.post_id
-    GROUP BY p.user_id
+    SELECT u2.id AS uid, COUNT(l.post_id) AS cnt
+    FROM users u2
+    LEFT JOIN posts p ON p.user_id = u2.id
+    LEFT JOIN likes l ON l.post_id = p.id
+    GROUP BY u2.id
 ) sub
 WHERE u.id = sub.uid;
 

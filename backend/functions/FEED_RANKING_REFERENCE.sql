@@ -143,16 +143,19 @@
 --   The API layer collects the distinct author_ids from the returned page
 --   and calls record_feed_exposures(). This is an UPSERT:
 
-CREATE OR REPLACE FUNCTION record_feed_exposures(p_author_ids UUID[])
-RETURNS void AS $$
-BEGIN
-    INSERT INTO feed_exposures (viewer_id, author_id, feed_date, exposure_count)
-    SELECT auth_uid(), aid, CURRENT_DATE, 1
-    FROM unnest(p_author_ids) AS aid
-    ON CONFLICT (viewer_id, author_id, feed_date)
-    DO UPDATE SET exposure_count = feed_exposures.exposure_count + 1;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- NOTE: This is a REFERENCE FILE — do not execute directly.
+-- The canonical implementation lives in 007_feed_ranking.sql and deploy_feed_v2.sql.
+--
+-- CREATE OR REPLACE FUNCTION record_feed_exposures(p_author_ids UUID[])
+-- RETURNS void AS $$
+-- BEGIN
+--     INSERT INTO feed_exposures (viewer_id, author_id, feed_date, exposure_count)
+--     SELECT auth_uid(), aid, CURRENT_DATE, 1
+--     FROM unnest(p_author_ids) AS aid
+--     ON CONFLICT (viewer_id, author_id, feed_date)
+--     DO UPDATE SET exposure_count = feed_exposures.exposure_count + 1;
+-- END;
+-- $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- CLEANUP (daily, via pg_cron or external scheduler):
 --   DELETE FROM feed_exposures WHERE feed_date < CURRENT_DATE - 2;
@@ -170,39 +173,39 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 4. MAIN FEED — RANKED, CURSOR-PAGINATED, RENDER-READY
 -- ############################################################################
 
-CREATE OR REPLACE FUNCTION get_main_feed(
-    p_cursor_score DOUBLE PRECISION DEFAULT NULL,
-    p_cursor_id UUID DEFAULT NULL,
-    p_limit INT DEFAULT 20
-)
-RETURNS TABLE (
-    id UUID,
-    user_id UUID,
-    username TEXT,
-    author_photo TEXT,
-    image_url TEXT,
-    image_width INT,
-    image_height INT,
-    like_count BIGINT,
-    view_count BIGINT,
-    is_liked BOOLEAN,
-    created_at TIMESTAMPTZ,
-    score DOUBLE PRECISION,
-    tags JSONB
-) AS $$
-DECLARE
-    v_viewer_id UUID := auth_uid();
+-- CREATE OR REPLACE FUNCTION get_main_feed(
+--     p_cursor_score DOUBLE PRECISION DEFAULT NULL,
+--     p_cursor_id UUID DEFAULT NULL,
+--     p_limit INT DEFAULT 20
+-- )
+-- RETURNS TABLE (
+--     id UUID,
+--     user_id UUID,
+--     username TEXT,
+--     author_photo TEXT,
+--     image_url TEXT,
+--     image_width INT,
+--     image_height INT,
+--     like_count BIGINT,
+--     view_count BIGINT,
+--     is_liked BOOLEAN,
+--     created_at TIMESTAMPTZ,
+--     score DOUBLE PRECISION,
+--     tags JSONB
+-- ) AS $$
+-- DECLARE
+--     v_viewer_id UUID := auth_uid();
     -- Weights (tunable constants)
-    v_like_w DOUBLE PRECISION := 0.20;
-    v_velocity_w DOUBLE PRECISION := 0.25;
-    v_freshness_w DOUBLE PRECISION := 0.45;
-    v_personal_w DOUBLE PRECISION := 0.10;
+--     v_like_w DOUBLE PRECISION := 0.20;
+--     v_velocity_w DOUBLE PRECISION := 0.25;
+--     v_freshness_w DOUBLE PRECISION := 0.45;
+--     v_personal_w DOUBLE PRECISION := 0.10;
     -- Decay constant: λ in e^(-λh), half-life ≈ 13.86 hours
-    v_decay_rate DOUBLE PRECISION := 0.05;
+--     v_decay_rate DOUBLE PRECISION := 0.05;
     -- Max posts per author per viewer per day
-    v_max_author_exposure INT := 2;
-BEGIN
-    RETURN QUERY
+--     v_max_author_exposure INT := 2;
+-- BEGIN
+--     RETURN QUERY
 
     -- ====================================================================
     -- CTE 1: CANDIDATE POSTS
@@ -211,182 +214,182 @@ BEGIN
     -- This is the only scan of the posts table. All subsequent CTEs
     -- operate on this materialized set.
     -- ====================================================================
-    WITH candidate_posts AS (
-        SELECT
-            p.id                    AS post_id,
-            p.user_id               AS post_user_id,
-            p.image_url             AS post_image_url,
-            p.image_width           AS post_image_width,
-            p.image_height          AS post_image_height,
-            p.like_count            AS post_like_count,
-            p.view_count            AS post_view_count,
-            p.created_at            AS post_created_at,
-            u.username              AS post_username,
-            u.profile_photo_url     AS post_author_photo
-        FROM posts p
-        JOIN users u ON u.id = p.user_id
-        WHERE p.is_hidden = FALSE
-          AND p.expires_at > now()
-          AND u.visibility = 'public'
-          AND u.is_banned = FALSE
-          AND NOT EXISTS (
-              SELECT 1 FROM blocks b
-              WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
-                 OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
-          )
-    ),
+--     WITH candidate_posts AS (
+--         SELECT
+--             p.id                    AS post_id,
+--             p.user_id               AS post_user_id,
+--             p.image_url             AS post_image_url,
+--             p.image_width           AS post_image_width,
+--             p.image_height          AS post_image_height,
+--             p.like_count            AS post_like_count,
+--             p.view_count            AS post_view_count,
+--             p.created_at            AS post_created_at,
+--             u.username              AS post_username,
+--             u.profile_photo_url     AS post_author_photo
+--         FROM posts p
+--         JOIN users u ON u.id = p.user_id
+--         WHERE p.is_hidden = FALSE
+--           AND p.expires_at > now()
+--           AND u.visibility = 'public'
+--           AND u.is_banned = FALSE
+--           AND NOT EXISTS (
+--               SELECT 1 FROM blocks b
+--               WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
+--                  OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
+--           )
+--     ),
 
     -- ====================================================================
     -- CTE 2: BATCH NORMALIZATION STATS
     -- Single pass over candidates to find max values for normalization.
     -- Both floored to 1 to prevent division by zero.
     -- ====================================================================
-    batch_stats AS (
-        SELECT
-            GREATEST(1, MAX(cp.post_like_count)) AS max_likes,
-            GREATEST(1, MAX(
-                COALESCE((
-                    SELECT SUM(pvh.view_count)
-                    FROM post_view_hourly pvh
-                    WHERE pvh.post_id = cp.post_id
-                      AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
-                ), 0)
-            )) AS max_velocity
-        FROM candidate_posts cp
-    ),
+--     batch_stats AS (
+--         SELECT
+--             GREATEST(1, MAX(cp.post_like_count)) AS max_likes,
+--             GREATEST(1, MAX(
+--                 COALESCE((
+--                     SELECT SUM(pvh.view_count)
+--                     FROM post_view_hourly pvh
+--                     WHERE pvh.post_id = cp.post_id
+--                       AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+--                 ), 0)
+--             )) AS max_velocity
+--         FROM candidate_posts cp
+--     ),
 
     -- ====================================================================
     -- CTE 3: SCORING INPUTS
     -- Attaches velocity, follow status, and age to each candidate.
     -- ====================================================================
-    scored AS (
-        SELECT
-            cp.*,
+--     scored AS (
+--         SELECT
+--             cp.*,
             -- View velocity: sum of views in current + previous hour bucket
-            COALESCE((
-                SELECT SUM(pvh.view_count)
-                FROM post_view_hourly pvh
-                WHERE pvh.post_id = cp.post_id
-                  AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
-            ), 0) AS recent_views,
+--             COALESCE((
+--                 SELECT SUM(pvh.view_count)
+--                 FROM post_view_hourly pvh
+--                 WHERE pvh.post_id = cp.post_id
+--                   AND pvh.hour_bucket >= date_trunc('hour', now()) - INTERVAL '1 hour'
+--             ), 0) AS recent_views,
             -- Follow relationship
-            EXISTS (
-                SELECT 1 FROM follows f
-                WHERE f.follower_id = v_viewer_id
-                  AND f.following_id = cp.post_user_id
-                  AND f.is_approved = TRUE
-            ) AS viewer_follows,
+--             EXISTS (
+--                 SELECT 1 FROM follows f
+--                 WHERE f.follower_id = v_viewer_id
+--                   AND f.following_id = cp.post_user_id
+--                   AND f.is_approved = TRUE
+--             ) AS viewer_follows,
             -- Age in fractional hours
-            EXTRACT(EPOCH FROM (now() - cp.post_created_at)) / 3600.0 AS hours_age
-        FROM candidate_posts cp
-    ),
+--             EXTRACT(EPOCH FROM (now() - cp.post_created_at)) / 3600.0 AS hours_age
+--         FROM candidate_posts cp
+--     ),
 
     -- ====================================================================
     -- CTE 4: RANKED — SCORE COMPUTATION + EXPOSURE LOOKUP
     -- This is where the formula is applied.
     -- ====================================================================
-    ranked AS (
-        SELECT
-            s.post_id,
-            s.post_user_id,
-            s.post_username,
-            s.post_author_photo,
-            s.post_image_url,
-            s.post_image_width,
-            s.post_image_height,
-            s.post_like_count,
-            s.post_view_count,
-            s.post_created_at,
+--     ranked AS (
+--         SELECT
+--             s.post_id,
+--             s.post_user_id,
+--             s.post_username,
+--             s.post_author_photo,
+--             s.post_image_url,
+--             s.post_image_width,
+--             s.post_image_height,
+--             s.post_like_count,
+--             s.post_view_count,
+--             s.post_created_at,
 
             -- ════════════════════════════════════════════════════════
             -- THE SCORE
             -- ════════════════════════════════════════════════════════
-            (
+--             (
                 -- Like component: log-dampened, batch-normalized
-                v_like_w * (ln(1.0 + s.post_like_count) / ln(1.0 + bs.max_likes))
+--                 v_like_w * (ln(1.0 + s.post_like_count) / ln(1.0 + bs.max_likes))
 
                 -- Velocity component: linear, batch-normalized
-              + v_velocity_w * (s.recent_views::DOUBLE PRECISION / bs.max_velocity)
+--               + v_velocity_w * (s.recent_views::DOUBLE PRECISION / bs.max_velocity)
 
                 -- Freshness component: exponential decay
-              + v_freshness_w * EXP(-v_decay_rate * s.hours_age)
+--               + v_freshness_w * EXP(-v_decay_rate * s.hours_age)
 
                 -- Personalization component: binary follow signal
-              + v_personal_w * (CASE WHEN s.viewer_follows THEN 1.0 ELSE 0.0 END)
-            ) AS computed_score,
+--               + v_personal_w * (CASE WHEN s.viewer_follows THEN 1.0 ELSE 0.0 END)
+--             ) AS computed_score,
 
             -- Exposure count for this author for this viewer today
-            COALESCE((
-                SELECT fe.exposure_count
-                FROM feed_exposures fe
-                WHERE fe.viewer_id = v_viewer_id
-                  AND fe.author_id = s.post_user_id
-                  AND fe.feed_date = CURRENT_DATE
-            ), 0) AS author_exposure_today
+--             COALESCE((
+--                 SELECT fe.exposure_count
+--                 FROM feed_exposures fe
+--                 WHERE fe.viewer_id = v_viewer_id
+--                   AND fe.author_id = s.post_user_id
+--                   AND fe.feed_date = CURRENT_DATE
+--             ), 0) AS author_exposure_today
 
-        FROM scored s
-        CROSS JOIN batch_stats bs
-    ),
+--         FROM scored s
+--         CROSS JOIN batch_stats bs
+--     ),
 
     -- ====================================================================
     -- CTE 5: FILTERED — EXPOSURE CAP + CURSOR PAGINATION
     -- ====================================================================
-    filtered AS (
-        SELECT r.*
-        FROM ranked r
-        WHERE
+--     filtered AS (
+--         SELECT r.*
+--         FROM ranked r
+--         WHERE
             -- Exposure cap enforcement
-            r.author_exposure_today < v_max_author_exposure
+--             r.author_exposure_today < v_max_author_exposure
 
             -- Cursor-based pagination (score DESC, id DESC for tie-breaking)
             -- First page: both cursors are NULL, this evaluates to TRUE
-            AND (
-                p_cursor_score IS NULL
-                OR r.computed_score < p_cursor_score
-                OR (r.computed_score = p_cursor_score AND r.post_id < p_cursor_id)
-            )
+--             AND (
+--                 p_cursor_score IS NULL
+--                 OR r.computed_score < p_cursor_score
+--                 OR (r.computed_score = p_cursor_score AND r.post_id < p_cursor_id)
+--             )
 
-        ORDER BY r.computed_score DESC, r.post_id DESC
-        LIMIT p_limit
-    )
+--         ORDER BY r.computed_score DESC, r.post_id DESC
+--         LIMIT p_limit
+--     )
 
     -- ====================================================================
     -- FINAL SELECT: Attach is_liked and tags (no N+1)
     -- is_liked: scalar subquery per post (index on likes PK)
     -- tags: scalar subquery with jsonb_agg (index on tags.post_id)
     -- ====================================================================
-    SELECT
-        f.post_id,
-        f.post_user_id,
-        f.post_username,
-        f.post_author_photo,
-        f.post_image_url,
-        f.post_image_width,
-        f.post_image_height,
-        f.post_like_count,
-        f.post_view_count,
-        EXISTS (
-            SELECT 1 FROM likes l
-            WHERE l.post_id = f.post_id AND l.user_id = v_viewer_id
-        ) AS is_liked,
-        f.post_created_at,
-        f.computed_score,
-        COALESCE(
-            (SELECT jsonb_agg(
-                jsonb_build_object(
-                    'label', t.label,
-                    'external_url', t.external_url,
-                    'position_x', t.position_x,
-                    'position_y', t.position_y
-                )
-            )
-            FROM tags t WHERE t.post_id = f.post_id),
-            '[]'::JSONB
-        ) AS tags
-    FROM filtered f
-    ORDER BY f.computed_score DESC, f.post_id DESC;
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+--     SELECT
+--         f.post_id,
+--         f.post_user_id,
+--         f.post_username,
+--         f.post_author_photo,
+--         f.post_image_url,
+--         f.post_image_width,
+--         f.post_image_height,
+--         f.post_like_count,
+--         f.post_view_count,
+--         EXISTS (
+--             SELECT 1 FROM likes l
+--             WHERE l.post_id = f.post_id AND l.user_id = v_viewer_id
+--         ) AS is_liked,
+--         f.post_created_at,
+--         f.computed_score,
+--         COALESCE(
+--             (SELECT jsonb_agg(
+--                 jsonb_build_object(
+--                     'label', t.label,
+--                     'external_url', t.external_url,
+--                     'position_x', t.position_x,
+--                     'position_y', t.position_y
+--                 )
+--             )
+--             FROM tags t WHERE t.post_id = f.post_id),
+--             '[]'::JSONB
+--         ) AS tags
+--     FROM filtered f
+--     ORDER BY f.computed_score DESC, f.post_id DESC;
+-- END;
+-- $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 
 -- ############################################################################
@@ -396,87 +399,87 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- No ranking. Pure reverse chronological among followed users.
 -- Same render-ready shape as Main feed (minus score).
 
-CREATE OR REPLACE FUNCTION get_friends_feed(
-    p_cursor TIMESTAMPTZ DEFAULT NULL,
-    p_limit INT DEFAULT 20
-)
-RETURNS TABLE (
-    id UUID,
-    user_id UUID,
-    username TEXT,
-    author_photo TEXT,
-    image_url TEXT,
-    image_width INT,
-    image_height INT,
-    like_count BIGINT,
-    view_count BIGINT,
-    is_liked BOOLEAN,
-    created_at TIMESTAMPTZ,
-    tags JSONB
-) AS $$
-DECLARE
-    v_viewer_id UUID := auth_uid();
-BEGIN
-    RETURN QUERY
-    SELECT
-        p.id,
-        p.user_id,
-        u.username,
-        u.profile_photo_url,
-        p.image_url,
-        p.image_width,
-        p.image_height,
-        p.like_count,
-        p.view_count,
+-- CREATE OR REPLACE FUNCTION get_friends_feed(
+--     p_cursor TIMESTAMPTZ DEFAULT NULL,
+--     p_limit INT DEFAULT 20
+-- )
+-- RETURNS TABLE (
+--     id UUID,
+--     user_id UUID,
+--     username TEXT,
+--     author_photo TEXT,
+--     image_url TEXT,
+--     image_width INT,
+--     image_height INT,
+--     like_count BIGINT,
+--     view_count BIGINT,
+--     is_liked BOOLEAN,
+--     created_at TIMESTAMPTZ,
+--     tags JSONB
+-- ) AS $$
+-- DECLARE
+--     v_viewer_id UUID := auth_uid();
+-- BEGIN
+--     RETURN QUERY
+--     SELECT
+--         p.id,
+--         p.user_id,
+--         u.username,
+--         u.profile_photo_url,
+--         p.image_url,
+--         p.image_width,
+--         p.image_height,
+--         p.like_count,
+--         p.view_count,
         -- is_liked: uses likes PK (user_id, post_id)
-        EXISTS (
-            SELECT 1 FROM likes l
-            WHERE l.post_id = p.id AND l.user_id = v_viewer_id
-        ) AS is_liked,
-        p.created_at,
+--         EXISTS (
+--             SELECT 1 FROM likes l
+--             WHERE l.post_id = p.id AND l.user_id = v_viewer_id
+--         ) AS is_liked,
+--         p.created_at,
         -- tags: aggregated inline, not a join
-        COALESCE(
-            (SELECT jsonb_agg(
-                jsonb_build_object(
-                    'label', t.label,
-                    'external_url', t.external_url,
-                    'position_x', t.position_x,
-                    'position_y', t.position_y
-                )
-            )
-            FROM tags t WHERE t.post_id = p.id),
-            '[]'::JSONB
-        ) AS tags
+--         COALESCE(
+--             (SELECT jsonb_agg(
+--                 jsonb_build_object(
+--                     'label', t.label,
+--                     'external_url', t.external_url,
+--                     'position_x', t.position_x,
+--                     'position_y', t.position_y
+--                 )
+--             )
+--             FROM tags t WHERE t.post_id = p.id),
+--             '[]'::JSONB
+--         ) AS tags
 
-    FROM posts p
-    JOIN users u ON u.id = p.user_id
+--     FROM posts p
+--     JOIN users u ON u.id = p.user_id
 
-    WHERE p.is_hidden = FALSE
-      AND p.expires_at > now()                      -- 3-day window
-      AND u.is_banned = FALSE
+--     WHERE p.is_hidden = FALSE
+--       AND p.expires_at > now()                      -- 3-day window
+--       AND u.is_banned = FALSE
 
       -- FOLLOW FILTER: only posts from approved follows
-      AND EXISTS (
-          SELECT 1 FROM follows f
-          WHERE f.follower_id = v_viewer_id
-            AND f.following_id = p.user_id
-            AND f.is_approved = TRUE
-      )
+--       AND EXISTS (
+--           SELECT 1 FROM follows f
+--           WHERE f.follower_id = v_viewer_id
+--             AND f.following_id = p.user_id
+--             AND f.is_approved = TRUE
+--       )
 
       -- BLOCK FILTER: both directions
-      AND NOT EXISTS (
-          SELECT 1 FROM blocks b
-          WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
-             OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
-      )
+--       AND NOT EXISTS (
+--           SELECT 1 FROM blocks b
+--           WHERE (b.blocker_id = p.user_id AND b.blocked_id = v_viewer_id)
+--              OR (b.blocker_id = v_viewer_id AND b.blocked_id = p.user_id)
+--       )
 
       -- CURSOR: created_at of last item on previous page
-      AND (p_cursor IS NULL OR p.created_at < p_cursor)
+--       AND (p_cursor IS NULL OR p.created_at < p_cursor)
 
-    ORDER BY p.created_at DESC
-    LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+--     ORDER BY p.created_at DESC
+--     LIMIT p_limit;
+-- END;
+-- $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 
 -- ############################################################################
@@ -601,9 +604,9 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- where is_hidden = FALSE, and the planner applies the expires_at filter
 -- as a recheck. For true optimization at scale, replace with:
 --
-CREATE INDEX idx_posts_active_feed_v2 ON posts (created_at DESC)
-    INCLUDE (user_id, image_url, image_width, image_height, like_count, view_count, expires_at)
-    WHERE is_hidden = FALSE;
+-- CREATE INDEX idx_posts_active_feed_v2 ON posts (created_at DESC)
+--     INCLUDE (user_id, image_url, image_width, image_height, like_count, view_count, expires_at)
+--     WHERE is_hidden = FALSE;
 --
 -- This covering index lets the Main and Friends feed queries satisfy the
 -- candidate scan with an index-only scan (no heap fetch) for all columns

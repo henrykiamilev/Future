@@ -203,10 +203,11 @@ final class AppState: ObservableObject {
         return vm
     }
 
-    func makeSettingsViewModel() -> SettingsViewModel {
+    func makeSettingsViewModel() -> SettingsViewModel? {
         if let vm = cachedSettingsVM { return vm }
         guard let uid = authService.currentUserID else {
-            fatalError("makeSettingsViewModel called without authenticated user")
+            print("[AppState] makeSettingsViewModel called without authenticated user")
+            return nil
         }
         let vm = SettingsViewModel(
             profileService: profileService,
