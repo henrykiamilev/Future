@@ -4,6 +4,7 @@ struct FeedPostCard: View {
 
     let post: FeedPost
     let onLikeTapped: () -> Void
+    let onReportTapped: () -> Void
     let authorDestination: UUID
 
     var body: some View {
@@ -50,6 +51,20 @@ struct FeedPostCard: View {
             .padding(.vertical, Theme.spacingS + 2)
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            Button {
+                onReportTapped()
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Theme.textTertiary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, Theme.spacingM)
+            .padding(.top, Theme.spacingS)
+        }
     }
 
     // MARK: - Image

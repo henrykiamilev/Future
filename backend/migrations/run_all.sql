@@ -91,6 +91,9 @@
 \echo '>>> 019: Fix trigger RLS (SECURITY DEFINER + recount)'
 \i ../migrations/019_fix_trigger_rls.sql
 
+\echo '>>> 020: Report content RPC'
+\i ../functions/020_report_content.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

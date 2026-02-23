@@ -3,6 +3,9 @@ import SwiftUI
 struct FeedView: View {
 
     @StateObject var viewModel: FeedViewModel
+    @State private var reportingPostID: UUID?
+    @State private var showReportSheet = false
+    @State private var showReportConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +38,44 @@ struct FeedView: View {
         .task {
             viewModel.startSessionTracking()
             await viewModel.loadInitial()
+        }
+        .confirmationDialog("Report Post", isPresented: $showReportSheet, titleVisibility: .visible) {
+            Button("Spam") {
+                if let id = reportingPostID {
+                    Task { await viewModel.reportPost(id: id, reason: "spam") }
+                }
+                showReportConfirmation = true
+            }
+            Button("Harassment or Bullying") {
+                if let id = reportingPostID {
+                    Task { await viewModel.reportPost(id: id, reason: "harassment") }
+                }
+                showReportConfirmation = true
+            }
+            Button("Inappropriate Content") {
+                if let id = reportingPostID {
+                    Task { await viewModel.reportPost(id: id, reason: "inappropriate") }
+                }
+                showReportConfirmation = true
+            }
+            Button("Other") {
+                if let id = reportingPostID {
+                    Task { await viewModel.reportPost(id: id, reason: "other") }
+                }
+                showReportConfirmation = true
+            }
+            Button("Cancel", role: .cancel) {
+                reportingPostID = nil
+            }
+        } message: {
+            Text("Why are you reporting this post?")
+        }
+        .alert("Report Submitted", isPresented: $showReportConfirmation) {
+            Button("OK", role: .cancel) {
+                reportingPostID = nil
+            }
+        } message: {
+            Text("Thanks for letting us know. We'll review this post.")
         }
     }
 
@@ -143,6 +184,10 @@ struct FeedView: View {
                     FeedPostCard(
                         post: post,
                         onLikeTapped: { Task { await viewModel.toggleLike(post: post) } },
+                        onReportTapped: {
+                            reportingPostID = post.id
+                            showReportSheet = true
+                        },
                         authorDestination: post.userID
                     )
                     .task {

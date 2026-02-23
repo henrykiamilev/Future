@@ -117,11 +117,11 @@ extension APIEndpoint {
     }
 
     static func reportPost(id: UUID, reason: String) -> APIEndpoint {
-        // Reports go directly to the reports table via PostgREST
+        // Uses RPC to auto-set reporter_id from auth.uid() and prevent duplicates
         APIEndpoint(
-            path: "/rest/v1/reports",
+            path: "/rest/v1/rpc/report_content",
             method: .POST,
-            body: RPCReport(target_type: "post", target_id: id.uuidString, reason: reason)
+            body: RPCReport(p_target_type: "post", p_target_id: id.uuidString, p_reason: reason)
         )
     }
 }
@@ -425,9 +425,9 @@ private struct RPCCheckLiked: Encodable, Sendable {
 }
 
 private struct RPCReport: Encodable, Sendable {
-    let target_type: String
-    let target_id: String
-    let reason: String
+    let p_target_type: String
+    let p_target_id: String
+    let p_reason: String
 }
 
 private struct RPCUserID: Encodable, Sendable {

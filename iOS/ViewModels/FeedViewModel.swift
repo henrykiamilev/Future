@@ -224,6 +224,16 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Report
+
+    func reportPost(id: UUID, reason: String) async {
+        do {
+            try await postService.reportPost(id: id, reason: reason)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     // MARK: - Private
 
     private func fetchPage(cursor: FeedCursor?) async throws -> FeedPage {
