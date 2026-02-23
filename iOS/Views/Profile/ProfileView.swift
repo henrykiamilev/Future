@@ -339,13 +339,13 @@ struct ProfileView: View {
             VStack(spacing: Theme.spacingS) {
                 Image(systemName: "star")
                     .font(.system(size: 24, weight: .light))
-                    .foregroundColor(Theme.textTertiary)
+                    .foregroundColor(theme.textSecondary)
                 Text("Pin your best posts")
                     .font(Theme.captionFont)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(theme.textSecondary)
                 Text("Open Archive to select up to 3")
                     .font(Theme.captionFont)
-                    .foregroundColor(Theme.textTertiary)
+                    .foregroundColor(theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
@@ -356,7 +356,7 @@ struct ProfileView: View {
     private var emptySignaturePlaceholder: some View {
         Text("No signature posts yet")
             .font(Theme.captionFont)
-            .foregroundColor(Theme.textTertiary)
+            .foregroundColor(theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
     }
@@ -406,7 +406,7 @@ struct ProfileView: View {
     private var emptyLivePlaceholder: some View {
         Text("No live posts")
             .font(Theme.captionFont)
-            .foregroundColor(Theme.textTertiary)
+            .foregroundColor(theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.spacingL)
     }
