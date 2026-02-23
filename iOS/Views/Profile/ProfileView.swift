@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var showSettings = false
     @State private var showFollowList = false
     @State private var followListPath = NavigationPath()
+    @State private var showArchiveForSignature = false
 
     private func signatureTileSize(for width: CGFloat) -> CGFloat {
         (width - 48 - 16) / 3
@@ -234,7 +235,9 @@ struct ProfileView: View {
         return VStack(alignment: .leading, spacing: Theme.spacingM) {
             sectionHeader("Signature")
 
-            if viewModel.signaturePosts.isEmpty {
+            if viewModel.signaturePosts.isEmpty && viewModel.isOwnProfile {
+                emptySignaturePlaceholderOwn
+            } else if viewModel.signaturePosts.isEmpty {
                 emptySignaturePlaceholder
             } else {
                 HStack(spacing: Theme.spacingS) {
@@ -242,15 +245,35 @@ struct ProfileView: View {
                         signatureTile(post, size: tileSize)
                     }
 
-                    // Empty slots
+                    // Empty slots — tappable on own profile to open archive
                     ForEach(0 ..< max(0, 3 - viewModel.signaturePosts.count), id: \.self) { _ in
-                        emptyTile(size: tileSize)
+                        if viewModel.isOwnProfile {
+                            Button {
+                                showArchiveForSignature = true
+                            } label: {
+                                addSignatureSlot(size: tileSize)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            emptyTile(size: tileSize)
+                        }
                     }
                 }
                 .padding(.horizontal, Theme.spacingL)
             }
         }
         .padding(.bottom, Theme.spacingXL)
+        .sheet(isPresented: $showArchiveForSignature, onDismiss: {
+            // Refresh profile to pick up any signature changes made in archive
+            Task { await viewModel.load() }
+        }) {
+            ArchiveView(viewModel: viewModel)
+                .onAppear {
+                    if viewModel.archivePosts.isEmpty {
+                        Task { await viewModel.loadArchive() }
+                    }
+                }
+        }
     }
 
     private func signatureTile(_ post: PostSummary, size: CGFloat) -> some View {
@@ -267,6 +290,55 @@ struct ProfileView: View {
                 likeOverlay(count: post.likeCount)
             }
         }
+        .if(viewModel.isOwnProfile) { view in
+            view.contextMenu {
+                Button(role: .destructive) {
+                    Task {
+                        await viewModel.removeFromSignature(postID: post.id)
+                    }
+                } label: {
+                    Label("Remove from Signature", systemImage: "star.slash")
+                }
+            }
+        }
+    }
+
+    /// Tappable empty slot with "+" icon — only shown on own profile
+    private func addSignatureSlot(size: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: Theme.radiusM)
+            .fill(Theme.separator.opacity(0.4))
+            .frame(width: size, height: size * 1.25)
+            .overlay {
+                VStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Theme.textTertiary)
+                    Text("Add")
+                        .font(Theme.captionFont)
+                        .foregroundColor(Theme.textTertiary)
+                }
+            }
+    }
+
+    private var emptySignaturePlaceholderOwn: some View {
+        Button {
+            showArchiveForSignature = true
+        } label: {
+            VStack(spacing: Theme.spacingS) {
+                Image(systemName: "star")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundColor(Theme.textTertiary)
+                Text("Pin your best posts")
+                    .font(Theme.captionFont)
+                    .foregroundColor(Theme.textSecondary)
+                Text("Open Archive to select up to 3")
+                    .font(Theme.captionFont)
+                    .foregroundColor(Theme.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.spacingL)
+        }
+        .buttonStyle(.plain)
     }
 
     private var emptySignaturePlaceholder: some View {
