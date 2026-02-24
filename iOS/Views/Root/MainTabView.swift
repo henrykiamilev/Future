@@ -30,6 +30,8 @@ struct MainTabView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         NotificationBellButton(viewModel: appState.makeNotificationViewModel())
+                            .colorScheme(.dark) // White icon over photo
+                            .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 1)
                     }
                 }
                 .navigationDestination(for: FeedPost.self) { post in

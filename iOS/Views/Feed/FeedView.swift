@@ -31,6 +31,7 @@ struct FeedView: View {
         feedContent
         .background(Color.white)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 // Friends | Discover tabs replace the nav title
@@ -89,26 +90,27 @@ struct FeedView: View {
                 } label: {
                     VStack(spacing: 2) {
                         Text(segment.rawValue)
-                            .font(.custom("OpenSauceSans-Medium", size: 16))
+                            .font(.custom("OpenSauceSans-SemiBold", size: 16))
                             .foregroundColor(
                                 viewModel.selectedSegment == segment
-                                    ? Theme.textPrimary
-                                    : Theme.textTertiary
+                                    ? .white
+                                    : .white.opacity(0.55)
                             )
 
                         // Thin underline for selected tab
                         Rectangle()
                             .fill(
                                 viewModel.selectedSegment == segment
-                                    ? Theme.accent
+                                    ? Color.white
                                     : Color.clear
                             )
-                            .frame(width: 30, height: 1.5)
+                            .frame(width: 30, height: 2)
                     }
                 }
                 .buttonStyle(.plain)
             }
         }
+        .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
     }
 
     // MARK: - Feed Content
