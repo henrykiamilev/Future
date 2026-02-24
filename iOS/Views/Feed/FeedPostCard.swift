@@ -11,10 +11,12 @@ struct FeedPostCard: View {
 
     @State private var showReactionPicker = false
 
-    // Safe aspect ratio — guard against zero/negative dimensions
+    // Safe aspect ratio — guard against zero/negative/extreme dimensions
     private var imageAspect: CGFloat {
         guard post.imageWidth > 0, post.imageHeight > 0 else { return 1.25 }
-        return CGFloat(post.imageHeight) / CGFloat(post.imageWidth)
+        let raw = CGFloat(post.imageHeight) / CGFloat(post.imageWidth)
+        // Clamp to reasonable range: 0.5 (wide landscape) to 2.0 (tall portrait)
+        return min(max(raw, 0.5), 2.0)
     }
 
     var body: some View {

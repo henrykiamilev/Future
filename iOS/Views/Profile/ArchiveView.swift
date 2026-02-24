@@ -122,47 +122,44 @@ struct ArchiveView: View {
     // MARK: - Archive Tile
 
     private func archiveTile(_ post: ArchivePost) -> some View {
-        GeometryReader { geometry in
-            let size = geometry.size.width
+        let tileSize = (UIScreen.main.bounds.width - 4) / 3
 
-            CachedImageView(
-                url: SupabaseConfig.storageURL(for: post.imageURL),
-                targetSize: CGSize(width: size * 2, height: size * 2)
-            ) {
-                Rectangle().fill(Theme.separator)
-            }
-            .frame(width: size, height: size)
-            .clipped()
-            .overlay(alignment: .topTrailing) {
-                if post.isSignature {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(.yellow)
-                        .padding(4)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .padding(4)
-                }
-            }
-            .overlay(alignment: .bottomLeading) {
-                if !post.isActive {
-                    Text("Expired")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(.black.opacity(0.5))
-                        .cornerRadius(Theme.radiusS)
-                        .padding(4)
-                }
-            }
-            .opacity(post.isActive ? 1.0 : 0.6)
-            .contentShape(Rectangle())
-            .contextMenu {
-                signatureContextMenu(for: post)
+        return CachedImageView(
+            url: SupabaseConfig.storageURL(for: post.imageURL),
+            targetSize: CGSize(width: tileSize * 2, height: tileSize * 2)
+        ) {
+            Rectangle().fill(Theme.separator)
+        }
+        .frame(height: tileSize)
+        .clipped()
+        .overlay(alignment: .topTrailing) {
+            if post.isSignature {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(.yellow)
+                    .padding(4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .padding(4)
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        .overlay(alignment: .bottomLeading) {
+            if !post.isActive {
+                Text("Expired")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(.black.opacity(0.5))
+                    .cornerRadius(Theme.radiusS)
+                    .padding(4)
+            }
+        }
+        .opacity(post.isActive ? 1.0 : 0.6)
+        .contentShape(Rectangle())
+        .contextMenu {
+            signatureContextMenu(for: post)
+        }
     }
 
     // MARK: - Context Menu

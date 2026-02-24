@@ -10,11 +10,13 @@ struct ProfileView: View {
     @State private var showArchiveForSignature = false
     @State private var showCuratedPage = false
 
-    private func signatureTileSize(for width: CGFloat) -> CGFloat {
-        max(1, (width - 48 - 16) / 3)
+    private var screenWidth: CGFloat { UIScreen.main.bounds.width }
+
+    private var signatureTileSize: CGFloat {
+        (screenWidth - 48 - 16) / 3
     }
-    private func liveTileSize(for width: CGFloat) -> CGFloat {
-        max(1, (width - 48 - 16) / 3 * 0.78)
+    private var liveTileSize: CGFloat {
+        (screenWidth - 48 - 16) / 3 * 0.78
     }
 
     var body: some View {
@@ -56,17 +58,15 @@ struct ProfileView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                GeometryReader { geometry in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         profileHeader
                         statsRow
-                        signatureSection(width: geometry.size.width)
-                        liveSection(width: geometry.size.width)
+                        signatureSection
+                        liveSection
                         archiveButton
                     }
                     .padding(.bottom, Theme.spacingXXL)
-                }
                 }
             }
         }
@@ -255,8 +255,8 @@ struct ProfileView: View {
     // MARK: - Signature Section
     // PRD: — Signature — [ 3 Large Tiles – manually selected ]
 
-    private func signatureSection(width: CGFloat) -> some View {
-        let tileSize = signatureTileSize(for: width)
+    private var signatureSection: some View {
+        let tileSize = signatureTileSize
         return VStack(alignment: .leading, spacing: Theme.spacingM) {
             sectionHeader("Signature")
 
@@ -377,8 +377,8 @@ struct ProfileView: View {
     // MARK: - Live Section
     // PRD: — Live — [ 3 Medium Tiles – last 3 active posts ]
 
-    private func liveSection(width: CGFloat) -> some View {
-        let tileSize = liveTileSize(for: width)
+    private var liveSection: some View {
+        let tileSize = liveTileSize
         return VStack(alignment: .leading, spacing: Theme.spacingM) {
             sectionHeader("Live")
 
