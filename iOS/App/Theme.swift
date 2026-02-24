@@ -40,6 +40,7 @@ enum Theme {
     static let statNumberFont: Font = .custom("OpenSauceSans-SemiBold", size: 16)
     static let statLabelFont: Font = .custom("OpenSauceSans-Regular", size: 11)
     static let sectionHeaderFont: Font = .custom("OpenSauceSans-SemiBold", size: 12)
+    static let greetingFont: Font = .custom("OpenSauceSans-Light", size: 22)
 
     // MARK: - Shadows
 

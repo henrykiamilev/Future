@@ -109,6 +109,9 @@
 \echo '>>> 025: Curated page (personal identity page)'
 \i ../functions/025_curated_page.sql
 
+\echo '>>> 026: Caption and location on posts'
+\i ../migrations/026_caption_location.sql
+
 \echo '>>> All migrations complete.'
 
 -- ============================================================================

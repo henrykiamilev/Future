@@ -22,6 +22,9 @@ struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
     let userID: UUID
     let username: String
     let authorPhoto: String?
+    let displayName: String?
+    let caption: String?
+    let location: String?
     let imageURL: String
     let imageWidth: Int
     let imageHeight: Int
@@ -36,7 +39,7 @@ struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id
         case userID = "userId"
-        case username, authorPhoto
+        case username, authorPhoto, displayName, caption, location
         case imageURL = "imageUrl"
         case imageWidth, imageHeight, likeCount, createdAt, score
         case isExhausted, itemsRemaining
@@ -48,6 +51,9 @@ struct ExplorePost: Decodable, Identifiable, Hashable, Sendable {
             userID: userID,
             username: username,
             authorPhoto: authorPhoto,
+            displayName: displayName,
+            caption: caption,
+            location: location,
             imageURL: imageURL,
             imageWidth: imageWidth,
             imageHeight: imageHeight,

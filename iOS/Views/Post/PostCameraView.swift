@@ -201,70 +201,172 @@ struct PostCameraView: View {
     // MARK: - Tag Editor
 
     private var tagView: some View {
-        VStack(spacing: Theme.spacingL) {
-            if let image = viewModel.capturedImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
-                    .padding(.top, Theme.spacingL)
-            }
+        ScrollView {
+            VStack(spacing: Theme.spacingL) {
+                if let image = viewModel.capturedImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+                        .padding(.top, Theme.spacingL)
+                }
 
-            VStack(alignment: .leading, spacing: Theme.spacingS) {
-                Text("TAGS")
-                    .font(Theme.sectionHeaderFont)
-                    .foregroundColor(Theme.textSecondary)
-                    .tracking(1.5)
+                // CAPTION
+                VStack(alignment: .leading, spacing: Theme.spacingXS) {
+                    Text("CAPTION")
+                        .font(Theme.sectionHeaderFont)
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1.5)
 
-                ForEach(Array(viewModel.tags.enumerated()), id: \.offset) { index, tag in
-                    HStack {
-                        Text(tag.label)
-                            .font(Theme.bodyFont)
-                            .foregroundColor(Theme.textPrimary)
-
-                        if let url = tag.externalURL {
-                            Text(url)
-                                .font(Theme.captionFont)
-                                .foregroundColor(Theme.textTertiary)
-                                .lineLimit(1)
+                    TextField("Add a short caption\u{2026}", text: $viewModel.caption)
+                        .font(Theme.bodyFont)
+                        .textFieldStyle(.plain)
+                        .padding(Theme.spacingS)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(Theme.radiusS)
+                        .onChange(of: viewModel.caption) { _, newValue in
+                            if newValue.count > 100 {
+                                viewModel.caption = String(newValue.prefix(100))
+                            }
                         }
+
+                    Text("\(viewModel.caption.count)/100")
+                        .font(Theme.captionFont)
+                        .foregroundColor(Theme.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(.horizontal, Theme.spacingL)
+
+                // LOCATION
+                VStack(alignment: .leading, spacing: Theme.spacingXS) {
+                    HStack {
+                        Text("LOCATION")
+                            .font(Theme.sectionHeaderFont)
+                            .foregroundColor(Theme.textSecondary)
+                            .tracking(1.5)
 
                         Spacer()
 
-                        Button {
-                            viewModel.removeTag(at: index)
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Theme.textTertiary)
+                        if viewModel.isDetectingLocation {
+                            HStack(spacing: 4) {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Detecting\u{2026}")
+                                    .font(Theme.captionFont)
+                                    .foregroundColor(Theme.textTertiary)
+                            }
                         }
                     }
-                    .padding(.vertical, Theme.spacingXS)
+
+                    HStack {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textTertiary)
+
+                        TextField("City, State", text: $viewModel.location)
+                            .font(Theme.bodyFont)
+                            .textFieldStyle(.plain)
+                            .onChange(of: viewModel.location) { _, newValue in
+                                viewModel.updateLocationSearch(query: newValue)
+                            }
+                    }
+                    .padding(Theme.spacingS)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(Theme.radiusS)
+
+                    // Autocomplete results
+                    if !viewModel.locationSearchResults.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(viewModel.locationSearchResults.prefix(5), id: \.self) { result in
+                                Button {
+                                    viewModel.selectLocationResult(result)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "mappin")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(Theme.textTertiary)
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(result.title)
+                                                .font(Theme.bodyFont)
+                                                .foregroundColor(Theme.textPrimary)
+                                            if !result.subtitle.isEmpty {
+                                                Text(result.subtitle)
+                                                    .font(Theme.captionFont)
+                                                    .foregroundColor(Theme.textTertiary)
+                                            }
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, Theme.spacingXS)
+                                    .padding(.horizontal, Theme.spacingS)
+                                }
+                                Divider()
+                            }
+                        }
+                        .background(Color(.systemGray6))
+                        .cornerRadius(Theme.radiusS)
+                    }
                 }
+                .padding(.horizontal, Theme.spacingL)
 
-                if viewModel.tags.count < 3 {
-                    tagInputFields
+                // TAGS
+                VStack(alignment: .leading, spacing: Theme.spacingS) {
+                    Text("TAGS")
+                        .font(Theme.sectionHeaderFont)
+                        .foregroundColor(Theme.textSecondary)
+                        .tracking(1.5)
+
+                    ForEach(Array(viewModel.tags.enumerated()), id: \.offset) { index, tag in
+                        HStack {
+                            Text(tag.label)
+                                .font(Theme.bodyFont)
+                                .foregroundColor(Theme.textPrimary)
+
+                            if let url = tag.externalURL {
+                                Text(url)
+                                    .font(Theme.captionFont)
+                                    .foregroundColor(Theme.textTertiary)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer()
+
+                            Button {
+                                viewModel.removeTag(at: index)
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Theme.textTertiary)
+                            }
+                        }
+                        .padding(.vertical, Theme.spacingXS)
+                    }
+
+                    if viewModel.tags.count < 3 {
+                        tagInputFields
+                    }
                 }
-            }
-            .padding(.horizontal, Theme.spacingL)
+                .padding(.horizontal, Theme.spacingL)
 
-            Spacer()
+                Spacer(minLength: Theme.spacingL)
 
-            Button {
-                viewModel.submitPost()
-            } label: {
-                Text("Post")
-                    .font(Theme.headlineFont)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Theme.accent)
-                    .cornerRadius(Theme.radiusM)
+                Button {
+                    viewModel.submitPost()
+                } label: {
+                    Text("Post")
+                        .font(Theme.headlineFont)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Theme.accent)
+                        .cornerRadius(Theme.radiusM)
+                }
+                .padding(.horizontal, Theme.spacingL)
+                .padding(.bottom, Theme.spacingXL)
             }
-            .padding(.horizontal, Theme.spacingL)
-            .padding(.bottom, Theme.spacingXL)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var tagInputFields: some View {

@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 import AVFoundation
+import MapKit
+import Combine
 
 // ============================================================================
 // POST VIEW MODEL
@@ -62,6 +64,12 @@ final class PostViewModel: ObservableObject {
     @Published var tagLabel: String = ""
     @Published var tagURL: String = ""
 
+    // Caption & Location
+    @Published var caption: String = ""
+    @Published var location: String = ""
+    @Published var isDetectingLocation = false
+    @Published var locationSearchResults: [MKLocalSearchCompletion] = []
+
     // Camera
     let camera = CameraCoordinator()
 
@@ -69,11 +77,21 @@ final class PostViewModel: ObservableObject {
 
     private let imageUploadService: ImageUploadServiceProtocol
     private let postService: PostServiceProtocol
+    let locationService: LocationService
     private var uploadTask: Task<Void, Never>?
+    private var locationSearchCancellable: AnyCancellable?
 
-    init(imageUploadService: ImageUploadServiceProtocol, postService: PostServiceProtocol) {
+    init(imageUploadService: ImageUploadServiceProtocol, postService: PostServiceProtocol, locationService: LocationService) {
         self.imageUploadService = imageUploadService
         self.postService = postService
+        self.locationService = locationService
+
+        // Forward location service search results
+        locationSearchCancellable = locationService.$searchResults
+            .receive(on: RunLoop.main)
+            .sink { [weak self] results in
+                self?.locationSearchResults = results
+            }
     }
 
     // MARK: - Camera Authorization
@@ -103,10 +121,42 @@ final class PostViewModel: ObservableObject {
                 print("[PostVM] Photo captured successfully — size: \(image.size)")
                 capturedImage = image
                 state = .preview
+
+                // Auto-detect location in background
+                autoDetectLocation()
             } catch {
                 print("[PostVM] Photo capture FAILED: \(error)")
                 state = .error(error.localizedDescription)
             }
+        }
+    }
+
+    // MARK: - Location
+
+    func autoDetectLocation() {
+        isDetectingLocation = true
+        Task {
+            do {
+                let detected = try await locationService.requestCurrentLocation()
+                location = detected
+            } catch {
+                print("[PostVM] Location auto-detect failed: \(error.localizedDescription)")
+                // Non-fatal — user can type manually
+            }
+            isDetectingLocation = false
+        }
+    }
+
+    func updateLocationSearch(query: String) {
+        locationService.updateSearch(query: query)
+    }
+
+    func selectLocationResult(_ completion: MKLocalSearchCompletion) {
+        Task {
+            let resolved = await locationService.resolveCompletion(completion)
+            location = resolved
+            locationSearchResults = []
+            locationService.updateSearch(query: "")
         }
     }
 
@@ -115,6 +165,9 @@ final class PostViewModel: ObservableObject {
         tags = []
         tagLabel = ""
         tagURL = ""
+        caption = ""
+        location = ""
+        locationSearchResults = []
         state = .camera
         camera.start()
     }
@@ -193,12 +246,17 @@ final class PostViewModel: ObservableObject {
                     self.state = .uploading(progress: 0.85)
                 }
 
+                let trimmedCaption = self.caption.trimmingCharacters(in: .whitespaces)
+                let trimmedLocation = self.location.trimmingCharacters(in: .whitespaces)
+
                 let request = CreatePostRequest(
                     imageURL: uploaded.url,
                     imageWidth: uploaded.width,
                     imageHeight: uploaded.height,
                     imageSizeBytes: uploaded.sizeBytes,
-                    tags: self.tags
+                    tags: self.tags,
+                    caption: trimmedCaption.isEmpty ? nil : trimmedCaption,
+                    location: trimmedLocation.isEmpty ? nil : trimmedLocation
                 )
 
                 let response = try await self.postService.createPost(request)
@@ -255,6 +313,9 @@ final class PostViewModel: ObservableObject {
         tags = []
         tagLabel = ""
         tagURL = ""
+        caption = ""
+        location = ""
+        locationSearchResults = []
         state = .camera
         camera.start()
     }

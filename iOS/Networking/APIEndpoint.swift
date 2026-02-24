@@ -87,7 +87,9 @@ extension APIEndpoint {
                 p_image_width: request.imageWidth,
                 p_image_height: request.imageHeight,
                 p_image_size_bytes: request.imageSizeBytes,
-                p_tags: request.tags
+                p_tags: request.tags,
+                p_caption: request.caption,
+                p_location: request.location
             )
         )
     }
@@ -507,6 +509,8 @@ private struct RPCCreatePost: Encodable, Sendable {
     let p_image_height: Int
     let p_image_size_bytes: Int
     let p_tags: [TagInput]
+    let p_caption: String?
+    let p_location: String?
 }
 
 private struct RPCPostID: Encodable, Sendable {

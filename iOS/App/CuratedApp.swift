@@ -112,6 +112,7 @@ final class AppState: ObservableObject {
     let searchService: SearchService
     let commentService: CommentService
     let notificationService: NotificationService
+    let locationService: LocationService
 
     @Published var isAuthenticated = false
 
@@ -155,6 +156,7 @@ final class AppState: ObservableObject {
         self.searchService = SearchService(client: client)
         self.commentService = CommentService(client: client)
         self.notificationService = NotificationService(client: client)
+        self.locationService = LocationService()
 
         self.isAuthenticated = token.currentToken != nil
 
@@ -190,7 +192,7 @@ final class AppState: ObservableObject {
 
     func makePostViewModel() -> PostViewModel {
         if let vm = cachedPostVM { return vm }
-        let vm = PostViewModel(imageUploadService: imageUploadService, postService: postService)
+        let vm = PostViewModel(imageUploadService: imageUploadService, postService: postService, locationService: locationService)
         cachedPostVM = vm
         return vm
     }

@@ -12,6 +12,7 @@ struct PostDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 authorRow
                 postImage
+                captionAndLocationSection
                 actionsRow
                 tagsSection
                 if viewModel.commentsEnabled {
@@ -119,6 +120,38 @@ struct PostDetailView: View {
         }
         .aspectRatio(1 / aspect, contentMode: .fit)
         .clipped()
+    }
+
+    // MARK: - Caption & Location
+
+    @ViewBuilder
+    private var captionAndLocationSection: some View {
+        let hasCaption = viewModel.post.caption != nil && !(viewModel.post.caption?.isEmpty ?? true)
+        let hasLocation = viewModel.post.location != nil && !(viewModel.post.location?.isEmpty ?? true)
+
+        if hasCaption || hasLocation {
+            VStack(alignment: .leading, spacing: Theme.spacingXS) {
+                if let caption = viewModel.post.caption, !caption.isEmpty {
+                    Text(caption)
+                        .font(Theme.bodyFont)
+                        .foregroundColor(Theme.textPrimary)
+                }
+
+                if let location = viewModel.post.location, !location.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(Theme.textTertiary)
+
+                        Text(location)
+                            .font(Theme.captionFont)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                }
+            }
+            .padding(.horizontal, Theme.spacingM)
+            .padding(.vertical, Theme.spacingS)
+        }
     }
 
     // MARK: - Actions

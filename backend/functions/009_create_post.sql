@@ -1,7 +1,7 @@
 -- ============================================================================
 -- POST CREATION — SERVER-SIDE ENFORCEMENT
 -- ============================================================================
--- Validates: 24-hour rule, image constraints, tag limits.
+-- Validates: 24-hour rule, image constraints, tag limits, caption/location.
 -- 24-hour rule is double-enforced: here AND via trigger.
 -- ============================================================================
 
@@ -10,7 +10,9 @@ CREATE OR REPLACE FUNCTION create_post(
     p_image_width INT,
     p_image_height INT,
     p_image_size_bytes INT,
-    p_tags JSONB DEFAULT '[]'::JSONB   -- array of {label, external_url}
+    p_tags JSONB DEFAULT '[]'::JSONB,   -- array of {label, external_url}
+    p_caption TEXT DEFAULT NULL,
+    p_location TEXT DEFAULT NULL
 )
 RETURNS TABLE (
     post_id UUID,
@@ -70,11 +72,22 @@ BEGIN
     END IF;
 
     -- ----------------------------------------------------------------
+    -- 3b. VALIDATE CAPTION & LOCATION
+    -- ----------------------------------------------------------------
+    IF p_caption IS NOT NULL AND char_length(p_caption) > 100 THEN
+        RAISE EXCEPTION 'caption_too_long: Caption must be 100 characters or fewer';
+    END IF;
+
+    IF p_location IS NOT NULL AND char_length(p_location) > 200 THEN
+        RAISE EXCEPTION 'location_too_long: Location must be 200 characters or fewer';
+    END IF;
+
+    -- ----------------------------------------------------------------
     -- 4. INSERT POST
     --    (Trigger auto-sets expires_at and enforces 24h rule as double-check)
     -- ----------------------------------------------------------------
-    INSERT INTO posts (user_id, image_url, image_width, image_height, image_size_bytes)
-    VALUES (auth_uid(), p_image_url, p_image_width, p_image_height, p_image_size_bytes)
+    INSERT INTO posts (user_id, image_url, image_width, image_height, image_size_bytes, caption, location)
+    VALUES (auth_uid(), p_image_url, p_image_width, p_image_height, p_image_size_bytes, p_caption, p_location)
     RETURNING posts.id, posts.expires_at
     INTO v_new_post_id, v_expires;
 

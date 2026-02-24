@@ -30,7 +30,10 @@ RETURNS TABLE (
     tags JSONB,
     feed_score REAL,
     is_caught_up BOOLEAN,
-    friends_remaining INT
+    friends_remaining INT,
+    display_name TEXT,
+    caption TEXT,
+    location TEXT
 ) AS $$
 DECLARE
     v_viewer_id UUID := auth_uid();
@@ -65,6 +68,9 @@ BEGIN
             p.user_id,
             u.username,
             u.profile_photo_url,
+            u.display_name,
+            p.caption,
+            p.location,
             p.image_url,
             p.image_width,
             p.image_height,
@@ -127,10 +133,12 @@ BEGIN
         sp.tags,
         sp.feed_score,
         -- caught_up: TRUE when this page has fewer results than requested
-        -- (meaning there are no more posts to show)
         (COUNT(*) OVER() <= v_capped_limit)::BOOLEAN AS is_caught_up,
         -- remaining count: total unseen minus what we've returned so far
-        GREATEST(0, v_total_unseen - (ROW_NUMBER() OVER (ORDER BY sp.feed_score DESC, sp.id DESC))::INT)::INT AS friends_remaining
+        GREATEST(0, v_total_unseen - (ROW_NUMBER() OVER (ORDER BY sp.feed_score DESC, sp.id DESC))::INT)::INT AS friends_remaining,
+        sp.display_name,
+        sp.caption,
+        sp.location
     FROM scored_posts sp
     -- Cursor pagination on (score, id)
     WHERE (p_cursor_score IS NULL OR

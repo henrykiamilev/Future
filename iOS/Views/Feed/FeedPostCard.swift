@@ -13,19 +13,12 @@ struct FeedPostCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            authorRow
-            postImage
-            actionsRow
-            if !reactions.isEmpty {
-                ReactionBar(reactions: reactions) { emoji in
-                    onReactionTapped(emoji)
-                }
-                .padding(.horizontal, Theme.spacingM)
-                .padding(.bottom, Theme.spacingXS)
-            }
-            tagsRow
+            // Edge-to-edge image with overlays
+            imageWithOverlays
+
+            // Below-image content: location, tags, reactions
+            belowImageContent
         }
-        .background(Theme.surface)
         .overlay(alignment: .bottomLeading) {
             if showReactionPicker {
                 ReactionPicker(
@@ -46,125 +39,218 @@ struct FeedPostCard: View {
         }
     }
 
-    // MARK: - Author Row
+    // MARK: - Image with Overlays
 
-    private var authorRow: some View {
-        NavigationLink(value: authorDestination) {
-            HStack(spacing: Theme.spacingS) {
-                CachedImageView(
-                    url: SupabaseConfig.storageURL(for: post.authorPhoto ?? ""),
-                    targetSize: CGSize(width: 64, height: 64)
-                ) {
-                    Circle()
-                        .fill(Theme.separator)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.textTertiary)
-                        }
-                }
-                .frame(width: 32, height: 32)
-                .clipShape(Circle())
-
-                Text(post.username)
-                    .font(Theme.headlineFont)
-                    .foregroundColor(Theme.textPrimary)
-
-                Spacer()
-
-                Text(post.createdAt.timeAgo())
-                    .font(Theme.captionFont)
-                    .foregroundColor(Theme.textTertiary)
-            }
-            .padding(.horizontal, Theme.spacingM)
-            .padding(.vertical, Theme.spacingS + 2)
-        }
-        .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            Button {
-                onReportTapped()
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Theme.textTertiary)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, Theme.spacingM)
-            .padding(.top, Theme.spacingS)
-        }
-    }
-
-    // MARK: - Image
-
-    private var postImage: some View {
+    private var imageWithOverlays: some View {
         let aspect = CGFloat(post.imageHeight) / max(1, CGFloat(post.imageWidth))
 
         return GeometryReader { geometry in
-            NavigationLink(value: post) {
-                CachedImageView(
-                    url: SupabaseConfig.storageURL(for: post.imageURL),
-                    targetSize: CGSize(width: geometry.size.width, height: geometry.size.width * aspect)
-                ) {
-                    Rectangle()
-                        .fill(Theme.background)
-                        .overlay { ProgressView().tint(Theme.textTertiary) }
+            ZStack {
+                // Tap → profile navigation
+                NavigationLink(value: authorDestination) {
+                    CachedImageView(
+                        url: SupabaseConfig.storageURL(for: post.imageURL),
+                        targetSize: CGSize(width: geometry.size.width, height: geometry.size.width * aspect)
+                    ) {
+                        Rectangle()
+                            .fill(Theme.background)
+                            .overlay { ProgressView().tint(Theme.textTertiary) }
+                    }
+                    .aspectRatio(1 / aspect, contentMode: .fill)
+                    .frame(width: geometry.size.width, height: geometry.size.width * aspect)
+                    .clipped()
                 }
-                .aspectRatio(1 / aspect, contentMode: .fit)
-                .clipped()
+                .buttonStyle(.plain)
+
+                // Top gradient for text readability
+                VStack {
+                    LinearGradient(
+                        colors: [.black.opacity(0.45), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 120)
+                    Spacer()
+                }
+
+                // Bottom gradient for actions
+                VStack {
+                    Spacer()
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.50)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 100)
+                }
+
+                // Top-left: avatar + username pill
+                VStack {
+                    HStack {
+                        NavigationLink(value: authorDestination) {
+                            HStack(spacing: 6) {
+                                CachedImageView(
+                                    url: SupabaseConfig.storageURL(for: post.authorPhoto ?? ""),
+                                    targetSize: CGSize(width: 48, height: 48)
+                                ) {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.3))
+                                        .overlay {
+                                            Image(systemName: "person.fill")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.white.opacity(0.7))
+                                        }
+                                }
+                                .frame(width: 24, height: 24)
+                                .clipShape(Circle())
+
+                                Text(post.username)
+                                    .font(Theme.labelFont)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
+                    .padding(.leading, Theme.spacingM)
+                    .padding(.top, Theme.spacingM)
+
+                    Spacer()
+                }
+
+                // Top-right: greeting + caption
+                VStack {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if let name = post.displayName, !name.isEmpty {
+                            Text("HI \(name.uppercased())")
+                                .font(Theme.greetingFont)
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
+                        }
+
+                        if let caption = post.caption, !caption.isEmpty {
+                            Text(caption)
+                                .font(Theme.bodyFont)
+                                .foregroundColor(.white.opacity(0.9))
+                                .multilineTextAlignment(.trailing)
+                                .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, Theme.spacingM)
+                    .padding(.top, Theme.spacingXL + Theme.spacingM)
+
+                    Spacer()
+                }
+
+                // Bottom-left: like button
+                VStack {
+                    Spacer()
+                    HStack {
+                        Button(action: onLikeTapped) {
+                            HStack(spacing: 4) {
+                                Image(systemName: post.isLiked ? "heart.fill" : "heart")
+                                    .font(.system(size: 16, weight: .regular))
+                                    .foregroundColor(post.isLiked ? Theme.likeActive : .white)
+
+                                if post.likeCount > 0 {
+                                    Text(formatCount(post.likeCount))
+                                        .font(Theme.labelFont)
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.4)
+                                .onEnded { _ in
+                                    showReactionPicker = true
+                                }
+                        )
+
+                        Spacer()
+
+                        // Bottom-right: report (ellipsis)
+                        Button {
+                            onReportTapped()
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, Theme.spacingM)
+                    .padding(.bottom, Theme.spacingM)
+                }
             }
-            .buttonStyle(.plain)
         }
         .aspectRatio(1 / aspect, contentMode: .fit)
     }
 
-    // MARK: - Actions Row
+    // MARK: - Below Image Content
 
-    private var actionsRow: some View {
-        HStack(spacing: Theme.spacingM) {
-            // Like button — tap to like, long-press for reactions
-            Button(action: onLikeTapped) {
-                HStack(spacing: Theme.spacingXS) {
-                    Image(systemName: post.isLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 18, weight: .regular))
-                        .foregroundColor(post.isLiked ? Theme.likeActive : Theme.textPrimary)
+    @ViewBuilder
+    private var belowImageContent: some View {
+        VStack(alignment: .leading, spacing: Theme.spacingXS) {
+            // Location
+            if let location = post.location, !location.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(Theme.textTertiary)
 
-                    if post.likeCount > 0 {
-                        Text(formatCount(post.likeCount))
-                            .font(Theme.captionFont)
-                            .foregroundColor(Theme.textSecondary)
+                    Text(location)
+                        .font(Theme.captionFont)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.top, Theme.spacingS)
+            }
+
+            // Tags
+            if !post.tags.isEmpty {
+                HStack(spacing: Theme.spacingS) {
+                    ForEach(post.tags) { tag in
+                        tagChip(tag)
                     }
                 }
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.top, post.location != nil ? 0 : Theme.spacingS)
             }
-            .buttonStyle(.plain)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.4)
-                    .onEnded { _ in
-                        showReactionPicker = true
-                    }
-            )
 
-            Spacer()
+            // Reactions
+            if !reactions.isEmpty {
+                ReactionBar(reactions: reactions) { emoji in
+                    onReactionTapped(emoji)
+                }
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.top, Theme.spacingXS)
+            }
+
+            // Timestamp
+            Text(post.createdAt.timeAgo())
+                .font(Theme.captionFont)
+                .foregroundColor(Theme.textTertiary)
+                .padding(.horizontal, Theme.spacingM)
+                .padding(.top, Theme.spacingXS)
         }
-        .padding(.horizontal, Theme.spacingM)
-        .padding(.vertical, Theme.spacingS + 2)
+        .padding(.bottom, Theme.spacingS)
     }
 
     // MARK: - Tags
-
-    @ViewBuilder
-    private var tagsRow: some View {
-        if !post.tags.isEmpty {
-            HStack(spacing: Theme.spacingS) {
-                ForEach(post.tags) { tag in
-                    tagChip(tag)
-                }
-            }
-            .padding(.horizontal, Theme.spacingM)
-            .padding(.bottom, Theme.spacingS + 2)
-        }
-    }
 
     private func tagChip(_ tag: Tag) -> some View {
         Group {

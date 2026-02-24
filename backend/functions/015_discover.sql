@@ -64,7 +64,10 @@ RETURNS TABLE (
     is_caught_up BOOLEAN,
     friends_remaining INT,
     is_exhausted BOOLEAN,
-    items_remaining INT
+    items_remaining INT,
+    display_name TEXT,
+    caption TEXT,
+    location TEXT
 ) AS $$
 DECLARE
     v_viewer_id UUID := auth_uid();
@@ -100,6 +103,9 @@ BEGIN
             p.user_id,
             u.username,
             u.profile_photo_url,
+            u.display_name,
+            p.caption,
+            p.location,
             p.image_url,
             p.image_width,
             p.image_height,
@@ -149,7 +155,10 @@ BEGIN
         -- is_exhausted: TRUE if this page fills the remaining budget
         (v_budget <= v_capped_limit)::BOOLEAN AS is_exhausted,
         -- items_remaining: how many more after this page
-        GREATEST(0, v_budget - (ROW_NUMBER() OVER (ORDER BY rp.base_score DESC))::INT)::INT AS items_remaining
+        GREATEST(0, v_budget - (ROW_NUMBER() OVER (ORDER BY rp.base_score DESC))::INT)::INT AS items_remaining,
+        rp.display_name,
+        rp.caption,
+        rp.location
     FROM ranked_posts rp
     ORDER BY rp.base_score DESC
     LIMIT v_capped_limit;

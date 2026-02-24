@@ -6,6 +6,9 @@ struct FeedPost: Codable, Identifiable, Equatable, Hashable, Sendable {
     let userID: UUID
     let username: String
     let authorPhoto: String?
+    let displayName: String?
+    let caption: String?
+    let location: String?
     let imageURL: String
     let imageWidth: Int
     let imageHeight: Int
@@ -33,6 +36,9 @@ struct FeedPost: Codable, Identifiable, Equatable, Hashable, Sendable {
         case userID = "userId"
         case username
         case authorPhoto
+        case displayName
+        case caption
+        case location
         case imageURL = "imageUrl"
         case imageWidth
         case imageHeight
@@ -56,6 +62,8 @@ struct CreatePostRequest: Encodable, Sendable {
     let imageHeight: Int
     let imageSizeBytes: Int
     let tags: [TagInput]
+    let caption: String?
+    let location: String?
 
     enum CodingKeys: String, CodingKey {
         case imageURL = "imageUrl"
@@ -63,6 +71,8 @@ struct CreatePostRequest: Encodable, Sendable {
         case imageHeight
         case imageSizeBytes
         case tags
+        case caption
+        case location
     }
 }
 

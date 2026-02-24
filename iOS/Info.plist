@@ -6,6 +6,8 @@
 	<string>Curated needs camera access to take photos for your posts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Curated needs photo library access to save your photos.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Curated uses your location to tag where your photo was taken.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>OpenSauceSans-Regular.ttf</string>

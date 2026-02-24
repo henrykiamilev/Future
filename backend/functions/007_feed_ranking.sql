@@ -149,7 +149,10 @@ RETURNS TABLE (
     is_liked BOOLEAN,
     created_at TIMESTAMPTZ,
     score DOUBLE PRECISION,
-    tags JSONB
+    tags JSONB,
+    display_name TEXT,
+    caption TEXT,
+    location TEXT
 ) AS $$
 DECLARE
     v_viewer_id UUID := auth.uid();
@@ -259,7 +262,10 @@ BEGIN
             )
             FROM public.tags t WHERE t.post_id = p.id),
             '[]'::JSONB
-        ) AS tags
+        ) AS tags,
+        u.display_name,
+        p.caption,
+        p.location
     FROM filtered f
     JOIN public.posts p ON p.id = f.post_id
     JOIN public.users u ON u.id = p.user_id
