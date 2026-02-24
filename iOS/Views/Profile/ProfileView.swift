@@ -11,10 +11,10 @@ struct ProfileView: View {
     @State private var showCuratedPage = false
 
     private func signatureTileSize(for width: CGFloat) -> CGFloat {
-        (width - 48 - 16) / 3
+        max(1, (width - 48 - 16) / 3)
     }
     private func liveTileSize(for width: CGFloat) -> CGFloat {
-        (width - 48 - 16) / 3 * 0.78
+        max(1, (width - 48 - 16) / 3 * 0.78)
     }
 
     var body: some View {

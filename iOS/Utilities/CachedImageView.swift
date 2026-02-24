@@ -88,7 +88,7 @@ final class ImageCache: @unchecked Sendable {
 
 // MARK: - Downsampling
 
-private func downsample(data: Data, to pointSize: CGSize, scale: CGFloat) -> UIImage? {
+nonisolated private func downsample(data: Data, to pointSize: CGSize, scale: CGFloat) -> UIImage? {
     let maxPixelSize = max(pointSize.width, pointSize.height) * scale
     let options: [CFString: Any] = [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
