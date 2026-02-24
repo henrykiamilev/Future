@@ -28,18 +28,13 @@ struct FeedView: View {
     @State private var showReportConfirmation = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            segmentedControl
-            feedContent
-        }
+        feedContent
         .background(Color.white)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("CURATED")
-                    .font(.custom("OpenSauceSans-SemiBold", size: 13))
-                    .tracking(2.5)
-                    .foregroundColor(Theme.textPrimary)
+                // Friends | Discover tabs replace the nav title
+                inlineSegmentedControl
             }
         }
         // ── Session reminder ──
@@ -82,69 +77,36 @@ struct FeedView: View {
         }
     }
 
-    // MARK: - Segmented Control
+    // MARK: - Inline Segmented Control (inside nav bar)
 
-    private var segmentedControl: some View {
-        HStack(spacing: 0) {
+    private var inlineSegmentedControl: some View {
+        HStack(spacing: 28) {
             ForEach(FeedSegment.allCases, id: \.self) { segment in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         viewModel.selectedSegment = segment
                     }
                 } label: {
-                    VStack(spacing: Theme.spacingXS) {
+                    VStack(spacing: 2) {
                         Text(segment.rawValue)
-                            .font(Theme.headlineFont)
+                            .font(.custom("OpenSauceSans-Medium", size: 16))
                             .foregroundColor(
                                 viewModel.selectedSegment == segment
                                     ? Theme.textPrimary
                                     : Theme.textTertiary
                             )
 
-                        progressLabel(for: segment)
-
+                        // Thin underline for selected tab
                         Rectangle()
                             .fill(
                                 viewModel.selectedSegment == segment
                                     ? Theme.accent
                                     : Color.clear
                             )
-                            .frame(height: 1.5)
+                            .frame(width: 30, height: 1.5)
                     }
                 }
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.horizontal, Theme.spacingL)
-        .padding(.top, Theme.spacingS)
-        .background(Color.white)
-    }
-
-    @ViewBuilder
-    private func progressLabel(for segment: FeedSegment) -> some View {
-        switch segment {
-        case .friends:
-            if viewModel.isFriendsCaughtUp {
-                Text("caught up")
-                    .font(Theme.labelFont)
-                    .foregroundColor(Theme.textTertiary)
-            } else if viewModel.friendsPostsSeen > 0 || viewModel.friendsRemaining > 0 {
-                let total = viewModel.friendsPostsSeen + viewModel.friendsRemaining
-                Text("\(viewModel.friendsPostsSeen) of \(total)")
-                    .font(Theme.labelFont)
-                    .foregroundColor(Theme.textTertiary)
-            } else {
-                Text(" ").font(Theme.labelFont)
-            }
-        case .discover:
-            if viewModel.isDiscoveryExhausted {
-                Text("done")
-                    .font(Theme.labelFont)
-                    .foregroundColor(Theme.textTertiary)
-            } else {
-                Text("\(viewModel.discoveryItemsSeen)/15")
-                    .font(Theme.labelFont)
-                    .foregroundColor(Theme.textTertiary)
+                .buttonStyle(.plain)
             }
         }
     }

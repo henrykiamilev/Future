@@ -128,22 +128,27 @@ struct FeedPostCard: View {
 
     // MARK: - White Bottom Panel
 
+    private var hasLocation: Bool {
+        if let loc = post.location, !loc.isEmpty { return true }
+        return false
+    }
+
     private var bottomPanel: some View {
         HStack(alignment: .center) {
-            // Left — location + bold place label
-            VStack(alignment: .leading, spacing: 3) {
-                if let location = post.location, !location.isEmpty {
-                    Text(location)
+            // Left — location + bold place label (only when location exists)
+            if hasLocation {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(post.location!)
                         .font(.custom("OpenSauceSans-Regular", size: 12))
                         .foregroundColor(FeedTokens.textSecondary)
                         .lineLimit(1)
-                }
 
-                Text(placeLabel.uppercased())
-                    .font(.custom("OpenSauceSans-SemiBold", size: 22))
-                    .foregroundColor(FeedTokens.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    Text(placeLabel.uppercased())
+                        .font(.custom("OpenSauceSans-SemiBold", size: 22))
+                        .foregroundColor(FeedTokens.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
 
             Spacer()
@@ -163,7 +168,7 @@ struct FeedPostCard: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 18)
-        .frame(height: panelHeight)
+        .frame(height: hasLocation ? panelHeight : 56)
         .frame(maxWidth: .infinity)
         .background(FeedTokens.panelBackground)
     }
