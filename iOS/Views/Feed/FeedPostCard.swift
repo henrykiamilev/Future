@@ -1,24 +1,22 @@
 import SwiftUI
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FeedPostCard — Full-Screen Gallery Card
+// FeedPostCard — Premium Editorial Card
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Layout (top → bottom):
+// Layout:
 //   ┌─────────────────────────────────────────────────┐
-//   │  PHOTO (aspect-fill, edge-to-edge, ~85-90%)     │
+//   │  PHOTO (aspect-fill, edge-to-edge)              │
 //   │                                                   │
-//   │  ┌────────── top-right overlay ──────────┐       │
-//   │  │  DISPLAY NAME (all-caps, medium, 14pt)│       │
-//   │  │  caption (sentence case, 13pt)        │       │
-//   │  └───────────────────────────────────────┘       │
+//   │                          DISPLAY NAME ──┐ top-R  │
+//   │                          caption text   ┘        │
 //   │                                                   │
 //   ├─────────────────────────────────────────────────┤
-//   │  WHITE PANEL (~10-15% height)                    │
-//   │  ┌───────────────────────────────┐  ┌────────┐  │
-//   │  │ Location · timestamp          │  │ React  │  │
-//   │  │ PLACE LABEL (bold, 24pt)      │  └────────┘  │
-//   │  └───────────────────────────────┘               │
+//   │  WHITE PANEL (100pt fixed)                       │
+//   │                                                   │
+//   │  Location text              ┌──────────┐         │
+//   │  PLACE LABEL (bold 24pt)    │  React   │         │
+//   │                             └──────────┘         │
 //   └─────────────────────────────────────────────────┘
 //
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,110 +25,113 @@ struct FeedPostCard: View {
 
     let post: FeedPost
     let onReactTapped: () -> Void
-    let onProfileTapped: () -> Void
-    let cardHeight: CGFloat
-    let chromeVisible: Bool
+    let authorDestination: UUID
 
-    // MARK: - Layout Constants
+    // MARK: - Layout
 
     private let screenWidth = UIScreen.main.bounds.width
+    private let panelHeight: CGFloat = 100
 
-    /// White bottom panel height — ~12% of card
-    private var panelHeight: CGFloat {
-        max(90, cardHeight * 0.12)
+    /// Photo takes the full width, height driven by aspect ratio
+    /// Clamped to keep cards tall (portrait feel) — min 1.0 (square), max 1.5
+    private var imageAspect: CGFloat {
+        guard post.imageWidth > 0, post.imageHeight > 0 else { return 1.25 }
+        let raw = CGFloat(post.imageHeight) / CGFloat(post.imageWidth)
+        return min(max(raw, 1.0), 1.5)
     }
 
-    /// Photo region height — everything above the white panel
     private var photoHeight: CGFloat {
-        cardHeight - panelHeight
+        screenWidth * imageAspect
     }
 
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Photo region (aspect-fill, full-bleed) ──
-            photoRegion
-                .frame(width: screenWidth, height: photoHeight)
-                .clipped()
+            // ── Photo with overlay ──
+            photoSection
 
             // ── White bottom panel ──
             bottomPanel
-                .frame(width: screenWidth, height: panelHeight)
         }
-        .frame(width: screenWidth, height: cardHeight)
-        .background(FeedTokens.panelBackground)
     }
 
-    // MARK: - Photo Region
+    // MARK: - Photo Section
 
-    private var photoRegion: some View {
+    private var photoSection: some View {
         ZStack(alignment: .topTrailing) {
-            // Background image — aspect-fill with center crop
-            CachedImageView(
-                url: SupabaseConfig.storageURL(for: post.imageURL),
-                targetSize: CGSize(width: screenWidth * 2, height: photoHeight * 2)
-            ) {
-                // Loading placeholder — dominant-color tinted skeleton
-                Rectangle()
-                    .fill(Color(white: 0.12))
-                    .overlay {
-                        ProgressView()
-                            .tint(.white.opacity(0.3))
-                    }
+            // Full-bleed image — aspect-fill
+            NavigationLink(value: authorDestination) {
+                CachedImageView(
+                    url: SupabaseConfig.storageURL(for: post.imageURL),
+                    targetSize: CGSize(width: screenWidth * 2, height: photoHeight * 2)
+                ) {
+                    Rectangle()
+                        .fill(Color(white: 0.12))
+                        .overlay {
+                            ProgressView()
+                                .tint(.white.opacity(0.3))
+                        }
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: screenWidth, height: photoHeight)
+                .clipped()
             }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: screenWidth, height: photoHeight)
-            .clipped()
+            .buttonStyle(.plain)
 
-            // ── Top-right text overlay (name + caption) ──
-            if chromeVisible {
-                topRightOverlay
-                    .transition(.opacity)
+            // ── Readability gradient at top (subtle, ~12% height) ──
+            VStack {
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.45), location: 0),
+                        .init(color: .black.opacity(0.15), location: 0.6),
+                        .init(color: .clear, location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: photoHeight * 0.18)
+                Spacer()
             }
+            .allowsHitTesting(false)
+
+            // ── Top-right: name + caption ──
+            nameOverlay
+                .padding(.trailing, 18)
+                .padding(.top, 14)
         }
+        .frame(width: screenWidth, height: photoHeight)
     }
 
-    // MARK: - Top-Right Overlay (Name + Caption)
+    // MARK: - Name Overlay (top-right)
 
-    private var topRightOverlay: some View {
-        VStack(alignment: .trailing, spacing: 3) {
-            // Display name — all-caps, medium weight, tight tracking
+    private var nameOverlay: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            // Display name — all-caps, visible
             Text(displayName.uppercased())
-                .font(.custom("OpenSauceSans-Medium", size: 14))
-                .tracking(1.2)
+                .font(.custom("OpenSauceSans-Medium", size: 16))
+                .tracking(1.5)
                 .foregroundColor(.white)
 
-            // Caption — sentence case, regular weight (only if present)
+            // Caption — only if present
             if let caption = post.caption, !caption.isEmpty {
                 Text(caption)
                     .font(.custom("OpenSauceSans-Regular", size: 13))
-                    .foregroundColor(.white.opacity(0.88))
+                    .foregroundColor(.white.opacity(0.9))
                     .multilineTextAlignment(.trailing)
                     .lineLimit(2)
             }
         }
-        .shadow(color: .black.opacity(0.35), radius: 6, x: 0, y: 2)
-        // Subtle scrim behind text for readability
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(.ultraThinMaterial.opacity(0.3))
-        )
-        .padding(.trailing, 18)
-        .padding(.top, 12)
-        // Tappable — navigates to profile
-        .onTapGesture { onProfileTapped() }
+        .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 1)
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
     }
 
     // MARK: - White Bottom Panel
 
     private var bottomPanel: some View {
-        HStack(alignment: .bottom) {
-            // Left side — location + place label
-            VStack(alignment: .leading, spacing: 4) {
-                // Location line (small) + timestamp
+        HStack(alignment: .center) {
+            // Left — location + bold place label
+            VStack(alignment: .leading, spacing: 3) {
                 if let location = post.location, !location.isEmpty {
                     Text(location)
                         .font(.custom("OpenSauceSans-Regular", size: 12))
@@ -138,9 +139,8 @@ struct FeedPostCard: View {
                         .lineLimit(1)
                 }
 
-                // Bold place label — the primary location word
                 Text(placeLabel.uppercased())
-                    .font(.custom("OpenSauceSans-SemiBold", size: 24))
+                    .font(.custom("OpenSauceSans-SemiBold", size: 22))
                     .foregroundColor(FeedTokens.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -148,13 +148,13 @@ struct FeedPostCard: View {
 
             Spacer()
 
-            // Right side — single outlined button
+            // Right — outlined React button
             Button(action: onReactTapped) {
                 Text("React")
                     .font(.custom("OpenSauceSans-Medium", size: 14))
                     .foregroundColor(FeedTokens.textPrimary)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 9)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(FeedTokens.border, lineWidth: 1)
@@ -163,59 +163,44 @@ struct FeedPostCard: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .frame(height: panelHeight)
+        .frame(maxWidth: .infinity)
         .background(FeedTokens.panelBackground)
-        .opacity(chromeVisible ? 1 : 0)
     }
 
     // MARK: - Helpers
 
     private var displayName: String {
-        if let name = post.displayName, !name.isEmpty {
-            return name
-        }
+        if let name = post.displayName, !name.isEmpty { return name }
         return post.username
     }
 
-    /// Extract a bold "place label" from the location string.
-    /// If location is "Evanston, IL" → "EVANSTON"
-    /// If location is "Northwestern • Deering Library" → "NORTHWESTERN"
-    /// Fallback: display name
+    /// Extract bold place label from location.
+    /// "Evanston, IL" → "EVANSTON"
+    /// "Northwestern • Deering Library" → "NORTHWESTERN"
+    /// Fallback → display name
     private var placeLabel: String {
         if let location = post.location, !location.isEmpty {
-            // Take first component before comma, bullet, dash, or pipe
             let separators = CharacterSet(charactersIn: ",·•—–|-/")
-            let first = location.components(separatedBy: separators).first?
-                .trimmingCharacters(in: .whitespaces) ?? location
-            return first
+            if let first = location.components(separatedBy: separators).first?
+                .trimmingCharacters(in: .whitespaces), !first.isEmpty {
+                return first
+            }
+            return location
         }
-        // Fallback: use display name as the bold label
         return displayName
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Feed Design Tokens — isolated for this screen
+// Feed Design Tokens
 // ═══════════════════════════════════════════════════════════════════════════
 
 enum FeedTokens {
-    // Colors
     static let panelBackground = Color.white
-    static let textPrimary = Color(hex: 0x111111)
-    static let textSecondary = Color(hex: 0x737373)
-    static let border = Color(hex: 0xDADADA)
-}
-
-// MARK: - Color Hex Extension
-
-private extension Color {
-    init(hex: UInt, alpha: Double = 1.0) {
-        let r = Double((hex >> 16) & 0xFF) / 255.0
-        let g = Double((hex >> 8)  & 0xFF) / 255.0
-        let b = Double(hex         & 0xFF) / 255.0
-        self.init(red: r, green: g, blue: b, opacity: alpha)
-    }
+    static let textPrimary = Color(red: 0.067, green: 0.067, blue: 0.067)       // #111
+    static let textSecondary = Color(red: 0.45, green: 0.45, blue: 0.45)        // #737373
+    static let border = Color(red: 0.855, green: 0.855, blue: 0.855)            // #DADADA
 }
 
 // MARK: - Date Extension

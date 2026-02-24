@@ -1,16 +1,14 @@
 import SwiftUI
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FeedView — Full-Screen Gallery Feed
+// FeedView — Vertical Scrolling Gallery Feed
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Behavior:
-//   • One post fills the entire screen (photo + white panel).
-//   • Swipe up/down pages between posts (TabView with .page).
-//   • Single tap toggles immersive mode (hides chrome).
-//   • Long-press opens blurred action sheet (react, share, report).
-//   • Segmented control at top for Friends / Discover.
-//   • Tab bar hidden in immersive mode.
+// • Vertical scroll — each card is photo + white panel, stacked.
+// • Segmented control (Friends / Discover) at top via toolbar.
+// • Long-press on a card → action sheet (React, Report).
+// • Pull-to-refresh.
+// • Tab bar visible (standard iOS navigation).
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -18,55 +16,34 @@ struct FeedView: View {
 
     @StateObject var viewModel: FeedViewModel
 
-    // MARK: - Chrome / Immersive State
-
-    @State private var chromeVisible = true
-
-    // MARK: - Long-Press Action Sheet
-
-    @State private var showActionSheet = false
-    @State private var actionSheetPostID: UUID?
-
-    // MARK: - Reaction Picker
+    // MARK: - Reaction
 
     @State private var showReactionPicker = false
     @State private var reactionPostID: UUID?
 
-    // MARK: - Report Flow
+    // MARK: - Report
 
     @State private var reportingPostID: UUID?
     @State private var showReportSheet = false
     @State private var showReportConfirmation = false
 
-    // MARK: - Paging
-
-    @State private var currentIndex: Int = 0
-
     var body: some View {
-        ZStack {
-            // Background — always dark behind the photo
-            Color.black.ignoresSafeArea()
-
-            if viewModel.isLoading && viewModel.posts.isEmpty {
-                loadingView
-            } else if let error = viewModel.error, viewModel.posts.isEmpty {
-                errorView(error)
-            } else if viewModel.posts.isEmpty {
-                emptyView
-            } else {
-                pagedFeed
+        VStack(spacing: 0) {
+            segmentedControl
+            feedContent
+        }
+        .background(Color.white)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("CURATED")
+                    .font(.custom("OpenSauceSans-SemiBold", size: 13))
+                    .tracking(2.5)
+                    .foregroundColor(Theme.textPrimary)
             }
-
-            // ── Segmented control at top ──
-            if chromeVisible && !viewModel.posts.isEmpty {
-                VStack {
-                    segmentedControl
-                    Spacer()
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // ── Session Reminder Overlay ──
+        }
+        // ── Session reminder ──
+        .overlay {
             if viewModel.showSessionReminder {
                 SessionReminderView(
                     onKeepGoing: { viewModel.dismissSessionReminder() },
@@ -77,125 +54,32 @@ struct FeedView: View {
                 )
                 .transition(.opacity)
             }
-
-            // ── Reaction Picker Overlay ──
+        }
+        // ── Reaction picker overlay ──
+        .overlay {
             if showReactionPicker, let postID = reactionPostID {
                 reactionOverlay(for: postID)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: chromeVisible)
-        .navigationBarHidden(true)
-        .statusBarHidden(!chromeVisible)
         .task {
             viewModel.startSessionTracking()
             await viewModel.loadInitial()
         }
-
-        // ── Report confirmation dialog ──
+        // ── Report dialogs ──
         .confirmationDialog("Report Post", isPresented: $showReportSheet, titleVisibility: .visible) {
-            Button("Spam") {
-                submitReport(reason: "spam")
-            }
-            Button("Harassment or Bullying") {
-                submitReport(reason: "harassment")
-            }
-            Button("Inappropriate Content") {
-                submitReport(reason: "inappropriate")
-            }
-            Button("Other") {
-                submitReport(reason: "other")
-            }
-            Button("Cancel", role: .cancel) {
-                reportingPostID = nil
-            }
+            Button("Spam") { submitReport(reason: "spam") }
+            Button("Harassment or Bullying") { submitReport(reason: "harassment") }
+            Button("Inappropriate Content") { submitReport(reason: "inappropriate") }
+            Button("Other") { submitReport(reason: "other") }
+            Button("Cancel", role: .cancel) { reportingPostID = nil }
         } message: {
             Text("Why are you reporting this post?")
         }
         .alert("Report Submitted", isPresented: $showReportConfirmation) {
-            Button("OK", role: .cancel) {
-                reportingPostID = nil
-            }
+            Button("OK", role: .cancel) { reportingPostID = nil }
         } message: {
             Text("Thanks for letting us know. We'll review this post.")
         }
-
-        // ── Long-press action sheet ──
-        .confirmationDialog("", isPresented: $showActionSheet, titleVisibility: .hidden) {
-            Button("React") {
-                reactionPostID = actionSheetPostID
-                showReactionPicker = true
-            }
-            Button("Report") {
-                reportingPostID = actionSheetPostID
-                showReportSheet = true
-            }
-            Button("Cancel", role: .cancel) {
-                actionSheetPostID = nil
-            }
-        }
-    }
-
-    // MARK: - Paged Feed (one post per screen)
-
-    private var pagedFeed: some View {
-        GeometryReader { geometry in
-            let cardHeight = geometry.size.height
-
-            TabView(selection: $currentIndex) {
-                ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
-                    FeedPostCard(
-                        post: post,
-                        onReactTapped: {
-                            reactionPostID = post.id
-                            showReactionPicker = true
-                        },
-                        onProfileTapped: {
-                            // Navigation handled via NavigationStack in parent
-                        },
-                        cardHeight: cardHeight,
-                        chromeVisible: chromeVisible
-                    )
-                    .tag(index)
-                    // Single tap — toggle chrome
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            chromeVisible.toggle()
-                        }
-                    }
-                    // Long-press — action sheet
-                    .onLongPressGesture(minimumDuration: 0.4) {
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                        actionSheetPostID = post.id
-                        showActionSheet = true
-                    }
-                    .onAppear {
-                        viewModel.recordPostSeen(post)
-                        Task {
-                            await viewModel.loadMoreIfNeeded(currentPost: post)
-                            await viewModel.loadReactions(for: [post.id])
-                        }
-                    }
-                }
-
-                // Caught-up / end states as final "pages"
-                if viewModel.selectedSegment == .friends && viewModel.isFriendsCaughtUp {
-                    CaughtUpView(
-                        discoveryRemaining: viewModel.discoveryRemaining,
-                        onExplore: { viewModel.selectedSegment = .discover }
-                    )
-                    .tag(viewModel.posts.count)
-                }
-
-                if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted {
-                    DiscoveryEndView()
-                        .tag(viewModel.posts.count)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
-        }
-        .ignoresSafeArea()
     }
 
     // MARK: - Segmented Control
@@ -206,47 +90,34 @@ struct FeedView: View {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         viewModel.selectedSegment = segment
-                        currentIndex = 0
                     }
                 } label: {
-                    VStack(spacing: 3) {
+                    VStack(spacing: Theme.spacingXS) {
                         Text(segment.rawValue)
-                            .font(.custom("OpenSauceSans-Medium", size: 14))
+                            .font(Theme.headlineFont)
                             .foregroundColor(
                                 viewModel.selectedSegment == segment
-                                    ? .white
-                                    : .white.opacity(0.5)
+                                    ? Theme.textPrimary
+                                    : Theme.textTertiary
                             )
 
-                        // Progress indicator
                         progressLabel(for: segment)
 
                         Rectangle()
                             .fill(
                                 viewModel.selectedSegment == segment
-                                    ? Color.white
+                                    ? Theme.accent
                                     : Color.clear
                             )
-                            .frame(height: 1)
+                            .frame(height: 1.5)
                     }
                 }
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .background(
-            LinearGradient(
-                stops: [
-                    .init(color: .black.opacity(0.5), location: 0),
-                    .init(color: .black.opacity(0.0), location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .top)
-        )
+        .padding(.horizontal, Theme.spacingL)
+        .padding(.top, Theme.spacingS)
+        .background(Color.white)
     }
 
     @ViewBuilder
@@ -255,27 +126,137 @@ struct FeedView: View {
         case .friends:
             if viewModel.isFriendsCaughtUp {
                 Text("caught up")
-                    .font(.custom("OpenSauceSans-Regular", size: 10))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
             } else if viewModel.friendsPostsSeen > 0 || viewModel.friendsRemaining > 0 {
                 let total = viewModel.friendsPostsSeen + viewModel.friendsRemaining
                 Text("\(viewModel.friendsPostsSeen) of \(total)")
-                    .font(.custom("OpenSauceSans-Regular", size: 10))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
             } else {
-                Text(" ")
-                    .font(.custom("OpenSauceSans-Regular", size: 10))
+                Text(" ").font(Theme.labelFont)
             }
         case .discover:
             if viewModel.isDiscoveryExhausted {
                 Text("done")
-                    .font(.custom("OpenSauceSans-Regular", size: 10))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
             } else {
                 Text("\(viewModel.discoveryItemsSeen)/15")
-                    .font(.custom("OpenSauceSans-Regular", size: 10))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(Theme.labelFont)
+                    .foregroundColor(Theme.textTertiary)
             }
+        }
+    }
+
+    // MARK: - Feed Content
+
+    @ViewBuilder
+    private var feedContent: some View {
+        if viewModel.isLoading && viewModel.posts.isEmpty {
+            Spacer()
+            ProgressView().tint(Theme.textTertiary)
+            Spacer()
+        } else if let error = viewModel.error, viewModel.posts.isEmpty {
+            Spacer()
+            errorView(error)
+            Spacer()
+        } else if viewModel.selectedSegment == .friends && viewModel.isFriendsCaughtUp && viewModel.posts.isEmpty {
+            CaughtUpView(
+                discoveryRemaining: viewModel.discoveryRemaining,
+                onExplore: { viewModel.selectedSegment = .discover }
+            )
+        } else if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted && viewModel.posts.isEmpty {
+            DiscoveryEndView()
+        } else if viewModel.posts.isEmpty {
+            Spacer()
+            emptyView
+            Spacer()
+        } else {
+            postList
+        }
+    }
+
+    // MARK: - Post List (vertical scroll)
+
+    private var postList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(viewModel.posts) { post in
+                    FeedPostCard(
+                        post: post,
+                        onReactTapped: {
+                            reactionPostID = post.id
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showReactionPicker = true
+                            }
+                        },
+                        authorDestination: post.userID
+                    )
+                    // Long-press → action sheet
+                    .contextMenu {
+                        Button {
+                            reactionPostID = post.id
+                            // Small delay so context menu dismisses first
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    showReactionPicker = true
+                                }
+                            }
+                        } label: {
+                            Label("React", systemImage: "face.smiling")
+                        }
+
+                        Button(role: .destructive) {
+                            reportingPostID = post.id
+                            showReportSheet = true
+                        } label: {
+                            Label("Report", systemImage: "exclamationmark.triangle")
+                        }
+                    }
+                    .task {
+                        await viewModel.loadMoreIfNeeded(currentPost: post)
+                        viewModel.recordPostSeen(post)
+                        await viewModel.loadReactions(for: [post.id])
+                    }
+                }
+
+                // Caught-up inline
+                if viewModel.selectedSegment == .friends && viewModel.isFriendsCaughtUp {
+                    CaughtUpView(
+                        discoveryRemaining: viewModel.discoveryRemaining,
+                        onExplore: { viewModel.selectedSegment = .discover }
+                    )
+                    .frame(height: 400)
+                }
+
+                // Discovery end inline
+                if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted {
+                    DiscoveryEndView()
+                        .frame(height: 400)
+                }
+
+                // Show more (discovery)
+                if viewModel.selectedSegment == .discover && !viewModel.isDiscoveryExhausted {
+                    Button {
+                        Task { await viewModel.loadMoreDiscovery() }
+                    } label: {
+                        Text("Show more")
+                            .font(Theme.headlineFont)
+                            .foregroundColor(Theme.accent)
+                            .padding(.vertical, Theme.spacingM)
+                    }
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .tint(Theme.textTertiary)
+                        .padding(.vertical, Theme.spacingL)
+                }
+            }
+        }
+        .refreshable {
+            await viewModel.refresh()
         }
     }
 
@@ -283,7 +264,6 @@ struct FeedView: View {
 
     private func reactionOverlay(for postID: UUID) -> some View {
         ZStack {
-            // Tap backdrop to dismiss
             Color.black.opacity(0.3)
                 .ignoresSafeArea()
                 .onTapGesture {
@@ -293,8 +273,7 @@ struct FeedView: View {
                     }
                 }
 
-            // Emoji row — centered
-            HStack(spacing: 24) {
+            HStack(spacing: 22) {
                 ForEach(ReactionPicker.emojis, id: \.self) { emoji in
                     Button {
                         Task { await viewModel.reactToPost(postID, emoji: emoji) }
@@ -304,75 +283,54 @@ struct FeedView: View {
                         }
                     } label: {
                         Text(emoji)
-                            .font(.system(size: 36))
+                            .font(.system(size: 32))
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
             .background(.ultraThinMaterial)
-            .cornerRadius(20)
-            .shadow(color: .black.opacity(0.2), radius: 20, y: 8)
-            .transition(.scale(scale: 0.8).combined(with: .opacity))
+            .cornerRadius(18)
+            .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+            .transition(.scale(scale: 0.85).combined(with: .opacity))
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showReactionPicker)
     }
 
-    // MARK: - States
+    // MARK: - Empty / Error States
 
-    private var loadingView: some View {
-        VStack {
-            Spacer()
-            ProgressView()
-                .tint(.white.opacity(0.5))
-            Spacer()
+    private var emptyView: some View {
+        VStack(spacing: Theme.spacingM) {
+            Text("Nothing here yet")
+                .font(Theme.headlineFont)
+                .foregroundColor(Theme.textPrimary)
+
+            Text(viewModel.selectedSegment == .friends
+                 ? "Follow people to see their posts."
+                 : "Check back later for new discoveries.")
+                .font(Theme.bodyFont)
+                .foregroundColor(Theme.textSecondary)
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func errorView(_ message: String) -> some View {
         VStack(spacing: Theme.spacingM) {
-            Spacer()
             Text("Something went wrong")
-                .font(.custom("OpenSauceSans-Medium", size: 16))
-                .foregroundColor(.white)
+                .font(Theme.headlineFont)
+                .foregroundColor(Theme.textPrimary)
 
             Text(message)
-                .font(.custom("OpenSauceSans-Regular", size: 13))
-                .foregroundColor(.white.opacity(0.6))
+                .font(Theme.captionFont)
+                .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             Button("Try Again") {
                 Task { await viewModel.refresh() }
             }
-            .font(.custom("OpenSauceSans-Medium", size: 14))
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.3), lineWidth: 1)
-            )
-            Spacer()
+            .font(Theme.headlineFont)
+            .foregroundColor(Theme.accent)
         }
-        .padding(.horizontal, 32)
-    }
-
-    private var emptyView: some View {
-        VStack(spacing: Theme.spacingM) {
-            Spacer()
-            Text("Nothing here yet")
-                .font(.custom("OpenSauceSans-Medium", size: 16))
-                .foregroundColor(.white)
-
-            Text(viewModel.selectedSegment == .friends
-                 ? "Follow people to see their posts."
-                 : "Check back later for new discoveries.")
-                .font(.custom("OpenSauceSans-Regular", size: 14))
-                .foregroundColor(.white.opacity(0.6))
-            Spacer()
-        }
+        .padding(.horizontal, Theme.spacingXL)
     }
 
     // MARK: - Helpers
