@@ -179,7 +179,7 @@ struct FeedView: View {
 
     private var postList: some View {
         ScrollView {
-            LazyVStack(spacing: Theme.spacingL) {
+            LazyVStack(spacing: 0) {
                 ForEach(viewModel.posts) { post in
                     FeedPostCard(
                         post: post,
@@ -234,7 +234,7 @@ struct FeedView: View {
                         .padding(.vertical, Theme.spacingL)
                 }
             }
-            .padding(.vertical, Theme.spacingL)
+            .padding(.bottom, Theme.spacingL)
         }
         .refreshable {
             await viewModel.refresh()
