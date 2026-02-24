@@ -5,6 +5,8 @@ struct ArchiveView: View {
     @ObservedObject var viewModel: ProfileViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showSignatureFullAlert = false
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     private let columns = [
         GridItem(.flexible(), spacing: 2),
@@ -83,6 +85,11 @@ struct ArchiveView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("You can pin up to 3 posts to your Signature. Remove one first to add a new one.")
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
             }
         }
         .presentationDetents([.medium, .large])
@@ -168,23 +175,31 @@ struct ArchiveView: View {
     private func signatureContextMenu(for post: ArchivePost) -> some View {
         if post.isSignature {
             Button(role: .destructive) {
+                print("[ArchiveView] Remove from Signature tapped for post: \(post.id)")
                 Task {
                     await viewModel.removeFromSignature(postID: post.id)
-                    // Reload archive to reflect change
                     await viewModel.loadArchive()
+                    if let err = viewModel.error {
+                        errorMessage = err
+                        showErrorAlert = true
+                    }
                 }
             } label: {
                 Label("Remove from Signature", systemImage: "star.slash")
             }
         } else {
             Button {
+                print("[ArchiveView] Add to Signature tapped for post: \(post.id), current sig count: \(signatureCount)")
                 if signatureCount >= 3 {
                     showSignatureFullAlert = true
                 } else {
                     Task {
                         await viewModel.addToSignature(postID: post.id)
-                        // Reload archive to reflect change
                         await viewModel.loadArchive()
+                        if let err = viewModel.error {
+                            errorMessage = err
+                            showErrorAlert = true
+                        }
                     }
                 }
             } label: {

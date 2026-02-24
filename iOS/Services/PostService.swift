@@ -43,11 +43,15 @@ final class PostService: PostServiceProtocol, Sendable {
     }
 
     func addToSignature(postID: UUID) async throws {
+        print("[PostService] addToSignature: calling RPC for postID=\(postID)")
         try await client.requestVoid(.addSignature(postID: postID))
+        print("[PostService] addToSignature: RPC succeeded for postID=\(postID)")
     }
 
     func removeFromSignature(postID: UUID) async throws {
+        print("[PostService] removeFromSignature: calling RPC for postID=\(postID)")
         try await client.requestVoid(.removeSignature(postID: postID))
+        print("[PostService] removeFromSignature: RPC succeeded for postID=\(postID)")
     }
 
     func reactToPost(postID: UUID, emoji: String) async throws {

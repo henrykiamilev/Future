@@ -109,19 +109,27 @@ final class ProfileViewModel: ObservableObject {
     // MARK: - Signature Management
 
     func addToSignature(postID: UUID) async {
+        print("[ProfileVM] addToSignature called for postID: \(postID)")
+        error = nil
         do {
             try await postService.addToSignature(postID: postID)
+            print("[ProfileVM] addToSignature SUCCESS for postID: \(postID)")
             await load()
         } catch {
+            print("[ProfileVM] addToSignature FAILED: \(error)")
             self.error = error.localizedDescription
         }
     }
 
     func removeFromSignature(postID: UUID) async {
+        print("[ProfileVM] removeFromSignature called for postID: \(postID)")
+        error = nil
         do {
             try await postService.removeFromSignature(postID: postID)
+            print("[ProfileVM] removeFromSignature SUCCESS for postID: \(postID)")
             await load()
         } catch {
+            print("[ProfileVM] removeFromSignature FAILED: \(error)")
             self.error = error.localizedDescription
         }
     }
