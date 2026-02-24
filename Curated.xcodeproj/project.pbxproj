@@ -67,6 +67,10 @@
 		A1000000000000000000003A /* CuratedPageEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003C /* CuratedPageEditView.swift */; };
 		A1000000000000000000003B /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003D /* LocationService.swift */; };
 		A1000000000000000000003C /* Discover.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003E /* Discover.swift */; };
+		A1000000000000000000003D /* CachedImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000003F /* CachedImageView.swift */; };
+		A1000000000000000000003E /* CaughtUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000041 /* CaughtUpView.swift */; };
+		A1000000000000000000003F /* DiscoveryEndView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000042 /* DiscoveryEndView.swift */; };
+		A10000000000000000000040 /* SessionReminderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000043 /* SessionReminderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -133,6 +137,10 @@
 		B1000000000000000000003C /* CuratedPageEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CuratedPageEditView.swift; sourceTree = "<group>"; };
 		B1000000000000000000003D /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		B1000000000000000000003E /* Discover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Discover.swift; sourceTree = "<group>"; };
+		B1000000000000000000003F /* CachedImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedImageView.swift; sourceTree = "<group>"; };
+		B10000000000000000000041 /* CaughtUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaughtUpView.swift; sourceTree = "<group>"; };
+		B10000000000000000000042 /* DiscoveryEndView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryEndView.swift; sourceTree = "<group>"; };
+		B10000000000000000000043 /* SessionReminderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionReminderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -284,6 +292,9 @@
 			children = (
 				B10000000000000000000015 /* FeedView.swift */,
 				B10000000000000000000016 /* FeedPostCard.swift */,
+				B10000000000000000000041 /* CaughtUpView.swift */,
+				B10000000000000000000042 /* DiscoveryEndView.swift */,
+				B10000000000000000000043 /* SessionReminderView.swift */,
 			);
 			path = Feed;
 			sourceTree = "<group>";
@@ -305,6 +316,7 @@
 				B1000000000000000000001D /* DeepLinkHandler.swift */,
 				B1000000000000000000001E /* ImageCompressor.swift */,
 				B1000000000000000000002F /* ViewExtensions.swift */,
+				B1000000000000000000003F /* CachedImageView.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -519,6 +531,10 @@
 				A1000000000000000000003A /* CuratedPageEditView.swift in Sources */,
 				A1000000000000000000003B /* LocationService.swift in Sources */,
 				A1000000000000000000003C /* Discover.swift in Sources */,
+				A1000000000000000000003D /* CachedImageView.swift in Sources */,
+				A1000000000000000000003E /* CaughtUpView.swift in Sources */,
+				A1000000000000000000003F /* DiscoveryEndView.swift in Sources */,
+				A10000000000000000000040 /* SessionReminderView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

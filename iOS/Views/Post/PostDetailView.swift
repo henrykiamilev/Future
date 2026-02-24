@@ -107,7 +107,9 @@ struct PostDetailView: View {
     // MARK: - Image
 
     private var postImage: some View {
-        let aspect = CGFloat(viewModel.post.imageHeight) / max(1, CGFloat(viewModel.post.imageWidth))
+        let w = viewModel.post.imageWidth
+        let h = viewModel.post.imageHeight
+        let aspect: CGFloat = (w > 0 && h > 0) ? CGFloat(h) / CGFloat(w) : 1.25
         let screenWidth = UIScreen.main.bounds.width
 
         return CachedImageView(

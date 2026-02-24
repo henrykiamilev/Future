@@ -7,6 +7,7 @@ struct CuratedPageEditView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedPhotos: [Int: PhotosPickerItem] = [:]
+    @State private var localImages: [Int: UIImage] = [:]
     @State private var showQuestionPicker: Int?
 
     var body: some View {
@@ -93,22 +94,43 @@ struct CuratedPageEditView: View {
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
+                        // Show local preview immediately
+                        localImages[index] = image
+                        // Upload in background
                         await viewModel.uploadImage(at: index, image: image)
                     }
                 }
             }
         ), matching: .images) {
             ZStack {
-                if let url = viewModel.images[index] {
+                if let localImage = localImages[index] {
+                    // Local preview: show immediately after selection
+                    Image(uiImage: localImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .aspectRatio(1, contentMode: .fill)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+                } else if let url = viewModel.images[index] {
+                    // Remote image: loaded from Supabase
                     CachedImageView(
                         url: SupabaseConfig.storageURL(for: url),
                         targetSize: CGSize(width: 300, height: 300)
                     ) {
-                        Rectangle().fill(Theme.separator)
+                        RoundedRectangle(cornerRadius: Theme.radiusM)
+                            .fill(Theme.separator)
+                            .overlay {
+                                ProgressView()
+                                    .tint(Theme.textTertiary)
+                            }
                     }
+                    .frame(minWidth: 0, maxWidth: .infinity)
                     .aspectRatio(1, contentMode: .fill)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
                 } else {
+                    // Empty slot
                     RoundedRectangle(cornerRadius: Theme.radiusM)
                         .fill(Theme.separator.opacity(0.4))
                         .aspectRatio(1, contentMode: .fill)

@@ -179,7 +179,7 @@ struct FeedView: View {
 
     private var postList: some View {
         ScrollView {
-            LazyVStack(spacing: Theme.spacingM) {
+            LazyVStack(spacing: Theme.spacingL) {
                 ForEach(viewModel.posts) { post in
                     FeedPostCard(
                         post: post,

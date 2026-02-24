@@ -16,7 +16,7 @@ final class ProfileViewModel: ObservableObject {
     // Archive
     @Published private(set) var archivePosts: [ArchivePost] = []
     @Published private(set) var isLoadingArchive = false
-    @Published private(set) var showArchive = false
+    @Published var showArchive = false
 
     private var archiveCursor: Date?
     private var archiveHasMore = true
