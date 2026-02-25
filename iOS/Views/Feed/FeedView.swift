@@ -16,10 +16,13 @@ import SwiftUI
 struct FeedView: View {
 
     @StateObject var viewModel: FeedViewModel
+    @EnvironmentObject private var appState: AppState
 
     // MARK: - Full-screen expansion
 
     @State private var expandedPost: FeedPost?
+    @State private var profileUserID: UUID?
+    @State private var showProfile = false
 
     // MARK: - Reaction
 
@@ -63,14 +66,32 @@ struct FeedView: View {
             }
         }
         // ── Full-screen photo expansion ──
-        .fullScreenCover(item: $expandedPost) { post in
+        .fullScreenCover(item: $expandedPost, onDismiss: {
+            // After full-screen cover finishes dismissing, navigate to profile if pending
+            if profileUserID != nil {
+                showProfile = true
+            }
+        }) { post in
             FeedFullScreenView(
                 post: post,
                 onDismiss: { expandedPost = nil },
                 onProfileTapped: {
-                    expandedPost = nil
+                    // Store the userID, then dismiss instantly using transaction
+                    profileUserID = post.userID
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        expandedPost = nil
+                    }
                 }
             )
+        }
+        // Push profile view after full-screen dismisses
+        .navigationDestination(isPresented: $showProfile) {
+            if let userID = profileUserID {
+                ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
+                    .onDisappear { profileUserID = nil }
+            }
         }
         .task {
             viewModel.startSessionTracking()

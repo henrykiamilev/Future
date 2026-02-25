@@ -11,41 +11,49 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: Theme.spacingXL) {
+                VStack(spacing: 32) {
                     avatarHeader
-                    profileFieldsCard
-                    socialLinksCard
-                    postPreferencesCard
-                    accountCard
-                    dangerZone
+                    profileSection
+                    socialSection
+                    preferencesSection
+                    accountSection
                 }
-                .padding(.horizontal, Theme.spacingL)
-                .padding(.top, Theme.spacingL)
-                .padding(.bottom, Theme.spacingXXL)
+                .padding(.top, 8)
+                .padding(.bottom, 60)
             }
             .background(Theme.background)
-            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Theme.background, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .font(Theme.headlineFont)
-                        .foregroundColor(Theme.textSecondary)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textPrimary)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.custom("OpenSauceSans-SemiBold", size: 16))
+                        .foregroundColor(Theme.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if viewModel.isSaving {
                         ProgressView().tint(Theme.textTertiary)
                     } else {
-                        Button("Save") {
+                        Button {
                             Task {
                                 await viewModel.saveProfile()
                                 if viewModel.error == nil {
                                     dismiss()
                                 }
                             }
+                        } label: {
+                            Text("Done")
+                                .font(.custom("OpenSauceSans-SemiBold", size: 15))
+                                .foregroundColor(Theme.textPrimary)
                         }
-                        .font(Theme.headlineFont)
-                        .foregroundColor(Theme.accent)
                     }
                 }
             }
@@ -81,42 +89,32 @@ struct SettingsView: View {
     // MARK: - Avatar Header
 
     private var avatarHeader: some View {
-        VStack(spacing: Theme.spacingS) {
+        VStack(spacing: 14) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     CachedImageView(
                         url: SupabaseConfig.storageURL(for: viewModel.profilePhotoURL ?? ""),
-                        targetSize: CGSize(width: 144, height: 144)
+                        targetSize: CGSize(width: 180, height: 180)
                     ) {
                         Circle()
-                            .fill(Theme.separator)
+                            .fill(Color(red: 0.92, green: 0.92, blue: 0.91))
                             .overlay {
                                 Image(systemName: "person.fill")
-                                    .font(.system(size: 28))
+                                    .font(.system(size: 32))
                                     .foregroundColor(Theme.textTertiary)
                             }
                     }
-                    .frame(width: 72, height: 72)
+                    .frame(width: 90, height: 90)
                     .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 1.5)
-                    )
-                    .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
 
                     if viewModel.isUploadingPhoto {
                         Circle()
                             .fill(Color.black.opacity(0.4))
-                            .frame(width: 72, height: 72)
+                            .frame(width: 90, height: 90)
                             .overlay {
                                 ProgressView().tint(.white)
                             }
                     }
-
-                    Image(systemName: "camera.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(Theme.accent)
-                        .background(Circle().fill(Theme.background).padding(2))
                 }
             }
             .onChange(of: selectedPhoto) { _, newItem in
@@ -129,269 +127,245 @@ struct SettingsView: View {
                 }
             }
 
-            Text("@\(profile.username)")
-                .font(Theme.captionFont)
-                .foregroundColor(Theme.textTertiary)
+            VStack(spacing: 4) {
+                Text("@\(profile.username)")
+                    .font(.custom("OpenSauceSans-Medium", size: 15))
+                    .foregroundColor(Theme.textPrimary)
+
+                Text("Change photo")
+                    .font(.custom("OpenSauceSans-Regular", size: 13))
+                    .foregroundColor(Theme.textTertiary)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.spacingS)
+        .padding(.top, 12)
     }
 
-    // MARK: - Profile Fields Card
+    // MARK: - Profile Section
 
-    private var profileFieldsCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            cardHeader("Profile")
+    private var profileSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Profile")
 
             VStack(spacing: 0) {
-                fieldRow(label: "Display name", text: $viewModel.displayName)
+                // Display name
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Display name")
+                        .font(.custom("OpenSauceSans-Regular", size: 12))
+                        .foregroundColor(Theme.textTertiary)
 
-                Divider()
-                    .background(Theme.separator)
+                    TextField("Your name", text: $viewModel.displayName)
+                        .font(.custom("OpenSauceSans-Regular", size: 15))
+                        .foregroundColor(Theme.textPrimary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
-                bioRow
+                sectionDivider
+
+                // Bio
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Bio")
+                        .font(.custom("OpenSauceSans-Regular", size: 12))
+                        .foregroundColor(Theme.textTertiary)
+
+                    TextField("Write something about yourself", text: $viewModel.bio, axis: .vertical)
+                        .font(.custom("OpenSauceSans-Regular", size: 15))
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(3...6)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
-            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+        .padding(.horizontal, 20)
     }
 
-    // MARK: - Social Links Card
+    // MARK: - Social Section
 
-    private var socialLinksCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            cardHeader("Social Links")
+    private var socialSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Social Links")
 
             VStack(spacing: 0) {
-                socialFieldRow(
-                    icon: "camera.fill",
-                    placeholder: "Instagram username",
-                    text: $viewModel.instagramHandle
-                )
+                // Instagram
+                HStack(spacing: 12) {
+                    Image("instagram_icon")
+                        .resizable()
+                        .frame(width: 20, height: 20)
+                        .opacity(0.6)
+                        // Fallback if custom image not available
+                        .overlay {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.textTertiary)
+                                .opacity(UIImage(named: "instagram_icon") == nil ? 1 : 0)
+                        }
 
-                Divider()
-                    .background(Theme.separator)
+                    TextField("Instagram username", text: $viewModel.instagramHandle)
+                        .font(.custom("OpenSauceSans-Regular", size: 15))
+                        .foregroundColor(Theme.textPrimary)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
-                socialFieldRow(
-                    icon: "message.fill",
-                    placeholder: "Snapchat username",
-                    text: $viewModel.snapchatHandle
-                )
+                sectionDivider
+
+                // Snapchat
+                HStack(spacing: 12) {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.textTertiary)
+                        .frame(width: 20, height: 20)
+
+                    TextField("Snapchat username", text: $viewModel.snapchatHandle)
+                        .font(.custom("OpenSauceSans-Regular", size: 15))
+                        .foregroundColor(Theme.textPrimary)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
-            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            Text("Tapping your handle on your profile will open the app directly.")
-                .font(Theme.captionFont)
+            Text("Tapping your handle on your profile opens the app directly.")
+                .font(.custom("OpenSauceSans-Regular", size: 12))
                 .foregroundColor(Theme.textTertiary)
-                .padding(.top, Theme.spacingS)
-                .padding(.horizontal, Theme.spacingXS)
+                .padding(.horizontal, 4)
         }
+        .padding(.horizontal, 20)
     }
 
-    // MARK: - Post Preferences Card
+    // MARK: - Preferences Section
 
-    private var postPreferencesCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            cardHeader("Posts")
+    private var preferencesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Preferences")
 
             VStack(spacing: 0) {
+                // Comments toggle
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Allow comments")
-                            .font(Theme.bodyFont)
+                            .font(.custom("OpenSauceSans-Regular", size: 15))
                             .foregroundColor(Theme.textPrimary)
 
                         Text("Let others comment on your posts")
-                            .font(Theme.captionFont)
+                            .font(.custom("OpenSauceSans-Regular", size: 12))
                             .foregroundColor(Theme.textTertiary)
                     }
 
                     Spacer()
 
-                    Button {
-                        Task { await viewModel.toggleComments() }
-                    } label: {
-                        Text(viewModel.commentsEnabled ? "On" : "Off")
-                            .font(Theme.headlineFont)
-                            .foregroundColor(viewModel.commentsEnabled ? Theme.accent : Theme.textTertiary)
-                    }
+                    Toggle("", isOn: Binding(
+                        get: { viewModel.commentsEnabled },
+                        set: { _ in Task { await viewModel.toggleComments() } }
+                    ))
+                    .toggleStyle(SwitchToggleStyle(tint: Theme.textPrimary))
+                    .labelsHidden()
                 }
-                .padding(.horizontal, Theme.spacingM)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-            }
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
-            }
 
-            Text("When off, no one can comment on any of your posts.")
-                .font(Theme.captionFont)
-                .foregroundColor(Theme.textTertiary)
-                .padding(.top, Theme.spacingS)
-                .padding(.horizontal, Theme.spacingXS)
-        }
-    }
+                sectionDivider
 
-    // MARK: - Account Card
-
-    private var accountCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            cardHeader("Account")
-
-            VStack(spacing: 0) {
+                // Visibility
                 HStack {
-                    Text("Account visibility")
-                        .font(Theme.bodyFont)
-                        .foregroundColor(Theme.textPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Private account")
+                            .font(.custom("OpenSauceSans-Regular", size: 15))
+                            .foregroundColor(Theme.textPrimary)
+
+                        Text("Only approved followers can see your posts")
+                            .font(.custom("OpenSauceSans-Regular", size: 12))
+                            .foregroundColor(Theme.textTertiary)
+                    }
 
                     Spacer()
 
-                    Button {
-                        Task { await viewModel.toggleVisibility() }
-                    } label: {
-                        HStack(spacing: Theme.spacingXS) {
-                            Text(viewModel.visibility == .public ? "Public" : "Private")
-                                .font(Theme.headlineFont)
-
-                            Image(systemName: viewModel.visibility == .public ? "globe" : "lock.fill")
-                                .font(.system(size: 12))
-                        }
-                        .foregroundColor(Theme.accent)
-                    }
+                    Toggle("", isOn: Binding(
+                        get: { viewModel.visibility == .private },
+                        set: { _ in Task { await viewModel.toggleVisibility() } }
+                    ))
+                    .toggleStyle(SwitchToggleStyle(tint: Theme.textPrimary))
+                    .labelsHidden()
                 }
-                .padding(.horizontal, Theme.spacingM)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .padding(.horizontal, 20)
+    }
 
-                Divider()
-                    .background(Theme.separator)
+    // MARK: - Account Section
 
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Account")
+
+            VStack(spacing: 0) {
+                // Sign out
                 Button {
                     viewModel.signOut()
                 } label: {
                     HStack {
                         Text("Sign Out")
-                            .font(Theme.bodyFont)
+                            .font(.custom("OpenSauceSans-Regular", size: 15))
                             .foregroundColor(Theme.textPrimary)
 
                         Spacer()
 
-                        Image(systemName: "arrow.right.square")
-                            .font(.system(size: 14))
+                        Image(systemName: "arrow.right.from.line")
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.textTertiary)
                     }
-                    .padding(.horizontal, Theme.spacingM)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 15)
+                }
+
+                sectionDivider
+
+                // Delete account
+                Button {
+                    viewModel.showDeleteConfirmation = true
+                } label: {
+                    HStack {
+                        Text("Delete Account")
+                            .font(.custom("OpenSauceSans-Regular", size: 15))
+                            .foregroundColor(Color(red: 0.85, green: 0.25, blue: 0.22))
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 15)
                 }
             }
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .strokeBorder(Theme.separator.opacity(0.6), lineWidth: 1)
-            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+        .padding(.horizontal, 20)
     }
 
-    // MARK: - Danger Zone
+    // MARK: - Shared Components
 
-    private var dangerZone: some View {
-        Button {
-            viewModel.showDeleteConfirmation = true
-        } label: {
-            HStack {
-                Text("Delete Account")
-                    .font(Theme.bodyFont)
-                    .foregroundColor(Theme.destructive)
-
-                Spacer()
-
-                Image(systemName: "trash")
-                    .font(.system(size: 14))
-                    .foregroundColor(Theme.destructive.opacity(0.6))
-            }
-            .padding(.horizontal, Theme.spacingM)
-            .padding(.vertical, 14)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.radiusL)
-                    .strokeBorder(Theme.destructive.opacity(0.15), lineWidth: 1)
-            }
-        }
-    }
-
-    // MARK: - Reusable Components
-
-    private func cardHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(Theme.sectionHeaderFont)
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.custom("OpenSauceSans-Medium", size: 13))
             .foregroundColor(Theme.textTertiary)
-            .tracking(1.2)
-            .padding(.horizontal, Theme.spacingXS)
-            .padding(.bottom, Theme.spacingS)
+            .padding(.horizontal, 4)
     }
 
-    private func fieldRow(label: String, text: Binding<String>) -> some View {
-        HStack(spacing: Theme.spacingS) {
-            Text(label)
-                .font(Theme.captionFont)
-                .foregroundColor(Theme.textTertiary)
-                .frame(width: 90, alignment: .leading)
-
-            TextField("", text: text)
-                .font(Theme.bodyFont)
-                .foregroundColor(Theme.textPrimary)
-        }
-        .padding(.horizontal, Theme.spacingM)
-        .padding(.vertical, 14)
-    }
-
-    private var bioRow: some View {
-        HStack(alignment: .top, spacing: Theme.spacingS) {
-            Text("Bio")
-                .font(Theme.captionFont)
-                .foregroundColor(Theme.textTertiary)
-                .frame(width: 90, alignment: .leading)
-                .padding(.top, 2)
-
-            TextField("Write something about yourself", text: $viewModel.bio, axis: .vertical)
-                .font(Theme.bodyFont)
-                .foregroundColor(Theme.textPrimary)
-                .lineLimit(3...6)
-        }
-        .padding(.horizontal, Theme.spacingM)
-        .padding(.vertical, 14)
-    }
-
-    private func socialFieldRow(
-        icon: String,
-        placeholder: String,
-        text: Binding<String>
-    ) -> some View {
-        HStack(spacing: Theme.spacingS) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundColor(Theme.textTertiary)
-                .frame(width: 24)
-
-            TextField(placeholder, text: text)
-                .font(Theme.bodyFont)
-                .foregroundColor(Theme.textPrimary)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-        }
-        .padding(.horizontal, Theme.spacingM)
-        .padding(.vertical, 14)
+    private var sectionDivider: some View {
+        Divider()
+            .background(Color(red: 0.94, green: 0.94, blue: 0.93))
+            .padding(.leading, 16)
     }
 }

@@ -139,7 +139,7 @@ struct FeedFullScreenView: View {
             // Black background
             Color.black.ignoresSafeArea()
 
-            // Full-screen image
+            // Full-screen image — tap to go to profile
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: post.imageURL),
                 targetSize: CGSize(width: screenWidth * 2, height: screenHeight * 2)
@@ -154,6 +154,9 @@ struct FeedFullScreenView: View {
             .frame(width: screenWidth, height: screenHeight)
             .clipped()
             .ignoresSafeArea()
+            .onTapGesture {
+                onProfileTapped()
+            }
 
             // Bottom gradient for readability
             VStack {
@@ -179,12 +182,9 @@ struct FeedFullScreenView: View {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
                         // Username
-                        Button(action: onProfileTapped) {
-                            Text(displayName)
-                                .font(.custom("OpenSauceSans-SemiBold", size: 16))
-                                .foregroundColor(.white)
-                        }
-                        .buttonStyle(.plain)
+                        Text(displayName)
+                            .font(.custom("OpenSauceSans-SemiBold", size: 16))
+                            .foregroundColor(.white)
 
                         // Caption
                         if let caption = post.caption, !caption.isEmpty {
@@ -210,6 +210,9 @@ struct FeedFullScreenView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 40)
+                .onTapGesture {
+                    onProfileTapped()
+                }
             }
         }
         .offset(y: dragOffset)

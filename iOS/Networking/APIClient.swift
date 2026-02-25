@@ -275,7 +275,7 @@ protocol TokenProvider: Sendable {
 }
 
 final class KeychainTokenProvider: TokenProvider, Sendable {
-    private let service = "com.curated.app"
+    private let service = "com.getcurated.app"
     private let account = "auth_token"
     private let refreshAccount = "refresh_token"
 

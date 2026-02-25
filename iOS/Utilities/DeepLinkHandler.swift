@@ -15,10 +15,14 @@ enum DeepLinkHandler {
     static func openInstagram(handle: String) {
         guard isValidHandle(handle),
               let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
-        let appURL = URL(string: "instagram://user?username=\(encoded)")
-        let webURL = URL(string: "https://instagram.com/\(encoded)")
 
-        open(appURL: appURL, webFallback: webURL)
+        // Use the universal link — iOS will open the Instagram app directly
+        // if it's installed, otherwise it falls back to Safari.
+        let universalURL = URL(string: "https://www.instagram.com/\(encoded)")
+
+        if let url = universalURL {
+            UIApplication.shared.open(url)
+        }
     }
 
     // MARK: - Snapchat
@@ -27,24 +31,13 @@ enum DeepLinkHandler {
     static func openSnapchat(handle: String) {
         guard isValidHandle(handle),
               let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
-        let appURL = URL(string: "snapchat://add/\(encoded)")
-        let webURL = URL(string: "https://snapchat.com/add/\(encoded)")
 
-        open(appURL: appURL, webFallback: webURL)
-    }
+        // Use the universal link — iOS will open the Snapchat app directly
+        // if it's installed, otherwise it falls back to Safari.
+        let universalURL = URL(string: "https://www.snapchat.com/add/\(encoded)")
 
-    // MARK: - Generic Open
-
-    private static func open(appURL: URL?, webFallback: URL?) {
-        guard let appURL else {
-            if let webFallback { UIApplication.shared.open(webFallback) }
-            return
-        }
-
-        UIApplication.shared.open(appURL, options: [:]) { opened in
-            if !opened, let webFallback {
-                UIApplication.shared.open(webFallback)
-            }
+        if let url = universalURL {
+            UIApplication.shared.open(url)
         }
     }
 }
