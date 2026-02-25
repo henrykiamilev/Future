@@ -40,10 +40,10 @@ BEGIN
     END IF;
 
     -- Count current signatures (trigger also enforces, but give a clear error)
+    -- Note: FOR UPDATE is not allowed with aggregate functions in PostgreSQL
     SELECT COUNT(*) INTO v_sig_count
     FROM posts
-    WHERE user_id = auth_uid() AND is_signature = TRUE
-    FOR UPDATE;
+    WHERE user_id = auth_uid() AND is_signature = TRUE;
 
     IF v_sig_count >= 3 THEN
         RAISE EXCEPTION 'signature_limit: You already have 3 signature posts. Remove one first.';

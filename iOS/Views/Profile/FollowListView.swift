@@ -3,8 +3,15 @@ import SwiftUI
 struct FollowListView: View {
 
     @StateObject var viewModel: FollowListViewModel
+    let initialSegment: FollowListViewModel.Segment
     let onUserTapped: (UUID) -> Void
     @Environment(\.dismiss) private var dismiss
+
+    init(viewModel: FollowListViewModel, initialSegment: FollowListViewModel.Segment = .followers, onUserTapped: @escaping (UUID) -> Void) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.initialSegment = initialSegment
+        self.onUserTapped = onUserTapped
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,6 +22,7 @@ struct FollowListView: View {
         .navigationTitle(viewModel.selectedSegment.rawValue)
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            viewModel.selectedSegment = initialSegment
             await viewModel.load()
         }
     }

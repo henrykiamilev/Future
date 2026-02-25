@@ -75,6 +75,17 @@ struct ArchivePage: Decodable, Sendable {
     let hasMore: Bool
 }
 
+// MARK: - PostgREST Embedded Row Wrappers
+// The follows table returns embedded user objects like {"follower": {...}} or {"following": {...}}
+
+struct FollowerRow: Decodable, Sendable {
+    let follower: UserSummary?
+}
+
+struct FollowingRow: Decodable, Sendable {
+    let following: UserSummary?
+}
+
 final class ProfileService: ProfileServiceProtocol, Sendable {
 
     private let client: APIClientProtocol
@@ -125,11 +136,19 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
     }
 
     func getFollowers(userID: UUID) async throws -> [UserSummary] {
-        try await client.request(.followers(userID: userID))
+        print("[ProfileService] getFollowers: querying for userID=\(userID)")
+        let rows: [FollowerRow] = try await client.request(.followers(userID: userID))
+        let result = rows.compactMap { $0.follower }
+        print("[ProfileService] getFollowers: returned \(result.count) users")
+        return result
     }
 
     func getFollowing(userID: UUID) async throws -> [UserSummary] {
-        try await client.request(.following(userID: userID))
+        print("[ProfileService] getFollowing: querying for userID=\(userID)")
+        let rows: [FollowingRow] = try await client.request(.following(userID: userID))
+        let result = rows.compactMap { $0.following }
+        print("[ProfileService] getFollowing: returned \(result.count) users")
+        return result
     }
 
     func deleteAccount() async throws {

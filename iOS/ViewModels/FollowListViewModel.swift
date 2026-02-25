@@ -27,34 +27,31 @@ final class FollowListViewModel: ObservableObject {
     }
 
     func load() async {
+        print("[FollowListVM] load() called for userID: \(userID)")
         isLoading = true
         error = nil
 
-        // Load independently so one failure doesn't block the other
-        async let f: Result<[UserSummary], Error> = {
-            do { return .success(try await profileService.getFollowers(userID: userID)) }
-            catch { return .failure(error) }
-        }()
-        async let g: Result<[UserSummary], Error> = {
-            do { return .success(try await profileService.getFollowing(userID: userID)) }
-            catch { return .failure(error) }
-        }()
-
-        let followersResult = await f
-        let followingResult = await g
-
-        switch followersResult {
-        case .success(let list): followers = list
-        case .failure(let err): self.error = err.localizedDescription
+        // Load followers
+        do {
+            let list = try await profileService.getFollowers(userID: userID)
+            print("[FollowListVM] getFollowers SUCCESS: \(list.count) followers")
+            followers = list
+        } catch {
+            print("[FollowListVM] getFollowers FAILED: \(error)")
+            self.error = error.localizedDescription
         }
 
-        switch followingResult {
-        case .success(let list): following = list
-        case .failure(let err):
-            // Only overwrite error if we didn't already have one
-            if self.error == nil { self.error = err.localizedDescription }
+        // Load following
+        do {
+            let list = try await profileService.getFollowing(userID: userID)
+            print("[FollowListVM] getFollowing SUCCESS: \(list.count) following")
+            following = list
+        } catch {
+            print("[FollowListVM] getFollowing FAILED: \(error)")
+            if self.error == nil { self.error = error.localizedDescription }
         }
 
+        print("[FollowListVM] Final state: \(followers.count) followers, \(following.count) following, error: \(error ?? "nil")")
         isLoading = false
     }
 }

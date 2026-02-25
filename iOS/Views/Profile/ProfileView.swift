@@ -7,8 +7,10 @@ struct ProfileView: View {
     @State private var showSettings = false
     @State private var showFollowList = false
     @State private var followListPath = NavigationPath()
+    @State private var followListInitialSegment: FollowListViewModel.Segment = .followers
     @State private var showArchiveForSignature = false
     @State private var showCuratedPage = false
+    @State private var expandedPost: PostSummary?
 
     private var screenWidth: CGFloat { UIScreen.main.bounds.width }
 
@@ -102,6 +104,13 @@ struct ProfileView: View {
                     userID: viewModel.userID,
                     isOwnProfile: viewModel.isOwnProfile
                 )
+            )
+        }
+        .fullScreenCover(item: $expandedPost) { post in
+            ProfileFullScreenView(
+                imageURL: post.imageURL,
+                username: viewModel.username,
+                onDismiss: { expandedPost = nil }
             )
         }
         .task {
@@ -205,12 +214,18 @@ struct ProfileView: View {
         HStack(spacing: 0) {
             statItem(value: viewModel.totalLikes, label: "Likes", tappable: false)
 
-            Button { showFollowList = true } label: {
+            Button {
+                followListInitialSegment = .followers
+                showFollowList = true
+            } label: {
                 statItem(value: viewModel.followerCount, label: "Followers", tappable: true)
             }
             .buttonStyle(.plain)
 
-            Button { showFollowList = true } label: {
+            Button {
+                followListInitialSegment = .following
+                showFollowList = true
+            } label: {
                 statItem(value: viewModel.followingCount, label: "Following", tappable: true)
             }
             .buttonStyle(.plain)
@@ -221,6 +236,7 @@ struct ProfileView: View {
             NavigationStack(path: $followListPath) {
                 FollowListView(
                     viewModel: appState.makeFollowListViewModel(userID: viewModel.userID),
+                    initialSegment: followListInitialSegment,
                     onUserTapped: { userID in
                         followListPath.append(userID)
                     }
@@ -302,19 +318,24 @@ struct ProfileView: View {
     }
 
     private func signatureTile(_ post: PostSummary, size: CGFloat) -> some View {
-        CachedImageView(
-            url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: size * 2, height: size * 2.5)
-        ) {
-            Rectangle().fill(Theme.separator)
-        }
-        .frame(width: size, height: size * 1.25)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
-        .overlay(alignment: .bottomLeading) {
-            if post.likeCount > 0 {
-                likeOverlay(count: post.likeCount)
+        Button {
+            expandedPost = post
+        } label: {
+            CachedImageView(
+                url: SupabaseConfig.storageURL(for: post.imageURL),
+                targetSize: CGSize(width: size * 2, height: size * 2.5)
+            ) {
+                Rectangle().fill(Theme.separator)
+            }
+            .frame(width: size, height: size * 1.25)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+            .overlay(alignment: .bottomLeading) {
+                if post.likeCount > 0 {
+                    likeOverlay(count: post.likeCount)
+                }
             }
         }
+        .buttonStyle(.plain)
         .if(viewModel.isOwnProfile) { view in
             view.contextMenu {
                 Button(role: .destructive) {
@@ -401,19 +422,24 @@ struct ProfileView: View {
     }
 
     private func liveTile(_ post: PostSummary, size: CGFloat) -> some View {
-        CachedImageView(
-            url: SupabaseConfig.storageURL(for: post.imageURL),
-            targetSize: CGSize(width: size * 2, height: size * 2.5)
-        ) {
-            Rectangle().fill(Theme.separator)
-        }
-        .frame(width: size, height: size * 1.25)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
-        .overlay(alignment: .bottomLeading) {
-            if post.likeCount > 0 {
-                likeOverlay(count: post.likeCount)
+        Button {
+            expandedPost = post
+        } label: {
+            CachedImageView(
+                url: SupabaseConfig.storageURL(for: post.imageURL),
+                targetSize: CGSize(width: size * 2, height: size * 2.5)
+            ) {
+                Rectangle().fill(Theme.separator)
+            }
+            .frame(width: size, height: size * 1.25)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+            .overlay(alignment: .bottomLeading) {
+                if post.likeCount > 0 {
+                    likeOverlay(count: post.likeCount)
+                }
             }
         }
+        .buttonStyle(.plain)
     }
 
     private var emptyLivePlaceholder: some View {
@@ -506,5 +532,93 @@ struct ProfileView: View {
             return String(format: "%.1fK", Double(value) / 1_000)
         }
         return "\(value)"
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ProfileFullScreenView — Full-screen photo expansion for profile tiles
+// ═══════════════════════════════════════════════════════════════════════════
+// Swipe down to dismiss. Shows username at bottom over gradient.
+
+struct ProfileFullScreenView: View {
+
+    let imageURL: String
+    let username: String
+    let onDismiss: () -> Void
+
+    private let screenWidth = UIScreen.main.bounds.width
+    private let screenHeight = UIScreen.main.bounds.height
+
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            // Black background
+            Color.black.ignoresSafeArea()
+
+            // Full-screen image
+            CachedImageView(
+                url: SupabaseConfig.storageURL(for: imageURL),
+                targetSize: CGSize(width: screenWidth * 2, height: screenHeight * 2)
+            ) {
+                Rectangle()
+                    .fill(Color(white: 0.08))
+                    .overlay {
+                        ProgressView().tint(.white.opacity(0.3))
+                    }
+            }
+            .aspectRatio(contentMode: .fill)
+            .frame(width: screenWidth, height: screenHeight)
+            .clipped()
+            .ignoresSafeArea()
+
+            // Bottom gradient for readability
+            VStack {
+                Spacer()
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black.opacity(0.6), location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 160)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+
+            // Username overlay at bottom
+            VStack {
+                Spacer()
+
+                HStack {
+                    Text(username)
+                        .font(.custom("OpenSauceSans-SemiBold", size: 16))
+                        .foregroundColor(.white)
+                    Spacer()
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 40)
+            }
+        }
+        .offset(y: dragOffset)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    if value.translation.height > 0 {
+                        dragOffset = value.translation.height
+                    }
+                }
+                .onEnded { value in
+                    if value.translation.height > 150 {
+                        onDismiss()
+                    } else {
+                        withAnimation(.spring(response: 0.3)) {
+                            dragOffset = 0
+                        }
+                    }
+                }
+        )
     }
 }

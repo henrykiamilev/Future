@@ -162,22 +162,28 @@ extension APIEndpoint {
     }
 }
 
-// MARK: - Signature Endpoints (Supabase RPC)
+// MARK: - Signature Endpoints (Direct PostgREST)
+//
+// The RPC functions add_to_signature / remove_from_signature have a SQL bug:
+// "FOR UPDATE is not allowed with aggregate functions"
+// Bypass by directly updating the posts table is_signature column.
 
 extension APIEndpoint {
     static func addSignature(postID: UUID) -> APIEndpoint {
         APIEndpoint(
-            path: "/rest/v1/rpc/add_to_signature",
-            method: .POST,
-            body: RPCPostID(p_post_id: postID.uuidString)
+            path: "/rest/v1/posts",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(postID.uuidString)")],
+            body: SignatureUpdate(isSignature: true)
         )
     }
 
     static func removeSignature(postID: UUID) -> APIEndpoint {
         APIEndpoint(
-            path: "/rest/v1/rpc/remove_from_signature",
-            method: .POST,
-            body: RPCPostID(p_post_id: postID.uuidString)
+            path: "/rest/v1/posts",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(postID.uuidString)")],
+            body: SignatureUpdate(isSignature: false)
         )
     }
 }
@@ -316,21 +322,37 @@ extension APIEndpoint {
 }
 
 // MARK: - Followers / Following List Endpoints
+//
+// The RPC functions get_followers/get_following have a SQL bug
+// ("column reference id is ambiguous"), so we query the follows
+// table directly via PostgREST with embedded user data.
 
 extension APIEndpoint {
+    /// People who follow `userID` — query follows where following_id = userID,
+    /// embed the follower's user data via `follower:users!follows_follower_id_fkey(...)`.
     static func followers(userID: UUID, limit: Int = 50) -> APIEndpoint {
         APIEndpoint(
-            path: "/rest/v1/rpc/get_followers",
-            method: .POST,
-            body: RPCFollowList(p_user_id: userID.uuidString, p_limit: limit)
+            path: "/rest/v1/follows",
+            method: .GET,
+            queryItems: [
+                .init(name: "following_id", value: "eq.\(userID.uuidString)"),
+                .init(name: "select", value: "follower:users!follows_follower_id_fkey(id,username,display_name,profile_photo_url)"),
+                .init(name: "limit", value: "\(limit)")
+            ]
         )
     }
 
+    /// People that `userID` follows — query follows where follower_id = userID,
+    /// embed the followed user's data via `following:users!follows_following_id_fkey(...)`.
     static func following(userID: UUID, limit: Int = 50) -> APIEndpoint {
         APIEndpoint(
-            path: "/rest/v1/rpc/get_following",
-            method: .POST,
-            body: RPCFollowList(p_user_id: userID.uuidString, p_limit: limit)
+            path: "/rest/v1/follows",
+            method: .GET,
+            queryItems: [
+                .init(name: "follower_id", value: "eq.\(userID.uuidString)"),
+                .init(name: "select", value: "following:users!follows_following_id_fkey(id,username,display_name,profile_photo_url)"),
+                .init(name: "limit", value: "\(limit)")
+            ]
         )
     }
 }
@@ -583,9 +605,11 @@ private struct RPCCommentID: Encodable, Sendable {
     let p_comment_id: String
 }
 
-private struct RPCFollowList: Encodable, Sendable {
-    let p_user_id: String
-    let p_limit: Int
+// RPCFollowList removed — now using direct PostgREST queries for followers/following
+
+private struct SignatureUpdate: Encodable, Sendable {
+    let isSignature: Bool
+    // Encoded as "is_signature" by convertToSnakeCase encoder
 }
 
 private struct CommentsEnabledUpdate: Encodable, Sendable {
