@@ -6,37 +6,33 @@ struct CaughtUpView: View {
     let onExplore: () -> Void
 
     var body: some View {
-        VStack(spacing: Theme.spacingL) {
-            Spacer()
-
+        VStack(spacing: 8) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 56, weight: .light))
-                .foregroundColor(Theme.accent.opacity(0.6))
+                .font(.system(size: 28, weight: .light))
+                .foregroundColor(Theme.accent.opacity(0.5))
 
             Text("You're all caught up")
-                .font(Theme.titleFont)
+                .font(.custom("OpenSauceSans-Medium", size: 14))
                 .foregroundColor(Theme.textPrimary)
 
             Text("Come back tomorrow to see what your friends share.")
-                .font(Theme.bodyFont)
+                .font(.custom("OpenSauceSans-Regular", size: 12))
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.spacingXL)
 
             if discoveryRemaining > 0 {
                 Button {
                     onExplore()
                 } label: {
                     Text("Explore \(discoveryRemaining) new posts")
-                        .font(Theme.captionFont)
+                        .font(.custom("OpenSauceSans-Regular", size: 12))
                         .foregroundColor(Theme.textTertiary)
                 }
-                .padding(.top, Theme.spacingS)
+                .padding(.top, 4)
             }
-
-            Spacer()
-            Spacer()
         }
+        .padding(.horizontal, 32)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
         .background(Theme.background)
     }

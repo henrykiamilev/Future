@@ -4,17 +4,22 @@ import SwiftUI
 // FeedView — Vertical Scrolling Gallery Feed
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// • Vertical scroll — each card is photo + white panel, stacked.
-// • Segmented control (Friends / Discover) at top via toolbar.
+// • Cream (#F9F4E6) background — no white anywhere.
+// • Tall rounded rectangle cards housing each photo.
+// • Tap a card → full-screen expansion (Instagram Reels style).
+// • Segmented control (Friends / Discover) at top via toolbar (dark text).
 // • Long-press on a card → action sheet (React, Report).
 // • Pull-to-refresh.
-// • Tab bar visible (standard iOS navigation).
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
 struct FeedView: View {
 
     @StateObject var viewModel: FeedViewModel
+
+    // MARK: - Full-screen expansion
+
+    @State private var expandedPost: FeedPost?
 
     // MARK: - Reaction
 
@@ -29,12 +34,12 @@ struct FeedView: View {
 
     var body: some View {
         feedContent
-        .background(Color.white)
+        .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(Theme.background, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                // Friends | Discover tabs replace the nav title
                 inlineSegmentedControl
             }
         }
@@ -57,6 +62,16 @@ struct FeedView: View {
                 reactionOverlay(for: postID)
             }
         }
+        // ── Full-screen photo expansion ──
+        .fullScreenCover(item: $expandedPost) { post in
+            FeedFullScreenView(
+                post: post,
+                onDismiss: { expandedPost = nil },
+                onProfileTapped: {
+                    expandedPost = nil
+                }
+            )
+        }
         .task {
             viewModel.startSessionTracking()
             await viewModel.loadInitial()
@@ -78,7 +93,7 @@ struct FeedView: View {
         }
     }
 
-    // MARK: - Inline Segmented Control (inside nav bar)
+    // MARK: - Inline Segmented Control (dark text on cream)
 
     private var inlineSegmentedControl: some View {
         HStack(spacing: 28) {
@@ -93,15 +108,15 @@ struct FeedView: View {
                             .font(.custom("OpenSauceSans-SemiBold", size: 16))
                             .foregroundColor(
                                 viewModel.selectedSegment == segment
-                                    ? .white
-                                    : .white.opacity(0.55)
+                                    ? Theme.textPrimary
+                                    : Theme.textTertiary
                             )
 
                         // Thin underline for selected tab
                         Rectangle()
                             .fill(
                                 viewModel.selectedSegment == segment
-                                    ? Color.white
+                                    ? Theme.textPrimary
                                     : Color.clear
                             )
                             .frame(width: 30, height: 2)
@@ -110,7 +125,6 @@ struct FeedView: View {
                 .buttonStyle(.plain)
             }
         }
-        .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 1)
     }
 
     // MARK: - Feed Content
@@ -146,6 +160,9 @@ struct FeedView: View {
     private var postList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                // Top spacing so first card doesn't sit right against nav bar
+                Spacer().frame(height: 12)
+
                 ForEach(viewModel.posts) { post in
                     FeedPostCard(
                         post: post,
@@ -155,13 +172,14 @@ struct FeedView: View {
                                 showReactionPicker = true
                             }
                         },
-                        authorDestination: post.userID
+                        onTap: {
+                            expandedPost = post
+                        }
                     )
                     // Long-press → action sheet
                     .contextMenu {
                         Button {
                             reactionPostID = post.id
-                            // Small delay so context menu dismisses first
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                     showReactionPicker = true
@@ -191,13 +209,11 @@ struct FeedView: View {
                         discoveryRemaining: viewModel.discoveryRemaining,
                         onExplore: { viewModel.selectedSegment = .discover }
                     )
-                    .frame(height: 400)
                 }
 
                 // Discovery end inline
                 if viewModel.selectedSegment == .discover && viewModel.isDiscoveryExhausted {
                     DiscoveryEndView()
-                        .frame(height: 400)
                 }
 
                 // Show more (discovery)

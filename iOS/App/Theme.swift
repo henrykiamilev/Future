@@ -4,8 +4,8 @@ enum Theme {
 
     // MARK: - Colors
 
-    static let background = Color(red: 0.976, green: 0.973, blue: 0.965)     // #F9F8F6 warm off-white
-    static let surface = Color.white
+    static let background = Color(red: 0.961, green: 0.961, blue: 0.953)     // #F5F5F3 light warm gray
+    static let surface = Color(red: 0.961, green: 0.961, blue: 0.953)       // #F5F5F3 light warm gray
     static let textPrimary = Color(red: 0.10, green: 0.10, blue: 0.10)       // near-black
     static let textSecondary = Color(red: 0.45, green: 0.45, blue: 0.45)     // mid-gray
     static let textTertiary = Color(red: 0.65, green: 0.65, blue: 0.65)      // light gray
