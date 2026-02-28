@@ -5,7 +5,6 @@ protocol PostServiceProtocol: Sendable {
     func likePost(id: UUID) async throws -> LikeResponse
     func unlikePost(id: UUID) async throws -> LikeResponse
     func checkLiked(postIDs: [UUID]) async throws -> [UUID: Bool]
-    func reportPost(id: UUID, reason: String) async throws
     func addToSignature(postID: UUID) async throws
     func removeFromSignature(postID: UUID) async throws
     func reactToPost(postID: UUID, emoji: String) async throws
@@ -36,10 +35,6 @@ final class PostService: PostServiceProtocol, Sendable {
     func checkLiked(postIDs: [UUID]) async throws -> [UUID: Bool] {
         let response: LikedCheckResponse = try await client.request(.checkLiked(postIDs: postIDs))
         return response.results
-    }
-
-    func reportPost(id: UUID, reason: String) async throws {
-        try await client.requestVoid(.reportPost(id: id, reason: reason))
     }
 
     func addToSignature(postID: UUID) async throws {

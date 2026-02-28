@@ -8,7 +8,8 @@ import SwiftUI
 // • Tall rounded rectangle cards housing each photo.
 // • Tap a card → full-screen expansion (Instagram Reels style).
 // • Segmented control (Friends / Discover) at top via toolbar (dark text).
-// • Long-press on a card → action sheet (React, Report).
+// • Double-tap → like with haptic + heart animation.
+// • Long-press → emoji reaction picker anchored to bottom of post image.
 // • Pull-to-refresh.
 //
 // ═══════════════════════════════════════════════════════════════════════════
@@ -29,23 +30,10 @@ struct FeedView: View {
     @State private var showReactionPicker = false
     @State private var reactionPostID: UUID?
 
-    // MARK: - Report
-
-    @State private var reportingPostID: UUID?
-    @State private var showReportSheet = false
-    @State private var showReportConfirmation = false
-
     var body: some View {
         feedContent
         .background(Theme.background)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarBackground(Theme.background, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                inlineSegmentedControl
-            }
-        }
+        .navigationBarHidden(true)
         // ── Session reminder ──
         .overlay {
             if viewModel.showSessionReminder {
@@ -57,12 +45,6 @@ struct FeedView: View {
                     }
                 )
                 .transition(.opacity)
-            }
-        }
-        // ── Reaction picker overlay ──
-        .overlay {
-            if showReactionPicker, let postID = reactionPostID {
-                reactionOverlay(for: postID)
             }
         }
         // ── Full-screen photo expansion ──
@@ -96,21 +78,6 @@ struct FeedView: View {
         .task {
             viewModel.startSessionTracking()
             await viewModel.loadInitial()
-        }
-        // ── Report dialogs ──
-        .confirmationDialog("Report Post", isPresented: $showReportSheet, titleVisibility: .visible) {
-            Button("Spam") { submitReport(reason: "spam") }
-            Button("Harassment or Bullying") { submitReport(reason: "harassment") }
-            Button("Inappropriate Content") { submitReport(reason: "inappropriate") }
-            Button("Other") { submitReport(reason: "other") }
-            Button("Cancel", role: .cancel) { reportingPostID = nil }
-        } message: {
-            Text("Why are you reporting this post?")
-        }
-        .alert("Report Submitted", isPresented: $showReportConfirmation) {
-            Button("OK", role: .cancel) { reportingPostID = nil }
-        } message: {
-            Text("Thanks for letting us know. We'll review this post.")
         }
     }
 
@@ -178,45 +145,64 @@ struct FeedView: View {
 
     // MARK: - Post List (vertical scroll)
 
+    // MARK: - Floating Header (Friends / Discover + Bell)
+
+    private var floatingHeader: some View {
+        HStack {
+            inlineSegmentedControl
+
+            Spacer()
+
+            NotificationBellButton(viewModel: appState.makeNotificationViewModel())
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
     private var postList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Top spacing so first card doesn't sit right against nav bar
-                Spacer().frame(height: 12)
+                Spacer().frame(height: 4)
 
                 ForEach(viewModel.posts) { post in
                     FeedPostCard(
                         post: post,
-                        onReactTapped: {
+                        showReactionPicker: showReactionPicker && reactionPostID == post.id,
+                        onTap: {
+                            expandedPost = post
+                        },
+                        onDoubleTap: {
+                            // Haptic feedback
+                            let impact = UIImpactFeedbackGenerator(style: .medium)
+                            impact.impactOccurred()
+
+                            // Always call toggleLike — the function handles
+                            // both like/unlike and updates the count correctly.
+                            Task { await viewModel.toggleLike(post: post) }
+                        },
+                        onLongPress: {
+                            // Haptic feedback for long press
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+
                             reactionPostID = post.id
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                 showReactionPicker = true
                             }
                         },
-                        onTap: {
-                            expandedPost = post
+                        onReaction: { emoji in
+                            // Haptic on reaction select
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+
+                            Task { await viewModel.reactToPost(post.id, emoji: emoji) }
+                            withAnimation(.spring(response: 0.25)) {
+                                showReactionPicker = false
+                                reactionPostID = nil
+                            }
                         }
                     )
-                    // Long-press → action sheet
-                    .contextMenu {
-                        Button {
-                            reactionPostID = post.id
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    showReactionPicker = true
-                                }
-                            }
-                        } label: {
-                            Label("React", systemImage: "face.smiling")
-                        }
-
-                        Button(role: .destructive) {
-                            reportingPostID = post.id
-                            showReportSheet = true
-                        } label: {
-                            Label("Report", systemImage: "exclamationmark.triangle")
-                        }
-                    }
                     .task {
                         await viewModel.loadMoreIfNeeded(currentPost: post)
                         viewModel.recordPostSeen(post)
@@ -254,47 +240,31 @@ struct FeedView: View {
                         .tint(Theme.textTertiary)
                         .padding(.vertical, Theme.spacingL)
                 }
+
+                // Bottom padding for custom tab bar
+                Spacer().frame(height: 80)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            floatingHeader
+                .background(Theme.background)
         }
         .refreshable {
             await viewModel.refresh()
         }
-    }
-
-    // MARK: - Reaction Overlay
-
-    private func reactionOverlay(for postID: UUID) -> some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.25)) {
-                        showReactionPicker = false
-                        reactionPostID = nil
-                    }
-                }
-
-            HStack(spacing: 22) {
-                ForEach(ReactionPicker.emojis, id: \.self) { emoji in
-                    Button {
-                        Task { await viewModel.reactToPost(postID, emoji: emoji) }
+        // Dismiss reaction picker on scroll tap
+        .overlay {
+            if showReactionPicker {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
                         withAnimation(.spring(response: 0.25)) {
                             showReactionPicker = false
                             reactionPostID = nil
                         }
-                    } label: {
-                        Text(emoji)
-                            .font(.system(size: 32))
                     }
-                    .buttonStyle(.plain)
-                }
+                    .allowsHitTesting(true)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(.ultraThinMaterial)
-            .cornerRadius(18)
-            .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
-            .transition(.scale(scale: 0.85).combined(with: .opacity))
         }
     }
 
@@ -332,14 +302,5 @@ struct FeedView: View {
             .foregroundColor(Theme.accent)
         }
         .padding(.horizontal, Theme.spacingXL)
-    }
-
-    // MARK: - Helpers
-
-    private func submitReport(reason: String) {
-        if let id = reportingPostID {
-            Task { await viewModel.reportPost(id: id, reason: reason) }
-        }
-        showReportConfirmation = true
     }
 }

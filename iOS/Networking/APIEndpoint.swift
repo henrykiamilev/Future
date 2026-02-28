@@ -118,14 +118,6 @@ extension APIEndpoint {
         )
     }
 
-    static func reportPost(id: UUID, reason: String) -> APIEndpoint {
-        // Uses RPC to auto-set reporter_id from auth.uid() and prevent duplicates
-        APIEndpoint(
-            path: "/rest/v1/rpc/report_content",
-            method: .POST,
-            body: RPCReport(p_target_type: "post", p_target_id: id.uuidString, p_reason: reason)
-        )
-    }
 }
 
 // MARK: - Profile Endpoints (Supabase RPC)
@@ -541,12 +533,6 @@ private struct RPCPostID: Encodable, Sendable {
 
 private struct RPCCheckLiked: Encodable, Sendable {
     let p_post_ids: [String]
-}
-
-private struct RPCReport: Encodable, Sendable {
-    let p_target_type: String
-    let p_target_id: String
-    let p_reason: String
 }
 
 private struct RPCUserID: Encodable, Sendable {

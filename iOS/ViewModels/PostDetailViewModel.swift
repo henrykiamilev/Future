@@ -98,19 +98,6 @@ final class PostDetailViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Report
-
-    @Published private(set) var didReport = false
-
-    func reportPost(reason: String) async {
-        do {
-            try await postService.reportPost(id: post.id, reason: reason)
-            didReport = true
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
     // MARK: - Like
 
     func toggleLike() async {

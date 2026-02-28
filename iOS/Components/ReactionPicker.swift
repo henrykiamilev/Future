@@ -5,7 +5,7 @@ struct ReactionPicker: View {
     let onReact: (String) -> Void
     let onDismiss: () -> Void
 
-    static let emojis = ["🔥", "👏", "😍", "💯", "🤯"]
+    static let emojis = ["🔥", "😮‍💨", "😍", "💯", "🤯"]
 
     var body: some View {
         HStack(spacing: Theme.spacingM) {

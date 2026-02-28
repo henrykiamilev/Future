@@ -1,7 +1,7 @@
 -- ============================================================================
 -- NOTIFICATIONS — In-app notification system
 -- ============================================================================
--- Stores like, follow, and comment notifications.
+-- Stores like, follow, comment, and reaction notifications.
 -- Trigger functions auto-insert rows when events happen.
 -- The client polls get_notifications() for the activity feed.
 -- ============================================================================
@@ -9,7 +9,7 @@
 -- ── ENUM ────────────────────────────────────────────────────────────────────
 
 DO $$ BEGIN
-    CREATE TYPE notification_type AS ENUM ('like', 'follow', 'comment');
+    CREATE TYPE notification_type AS ENUM ('like', 'follow', 'comment', 'reaction');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     type        notification_type NOT NULL,
     post_id     UUID REFERENCES posts(id) ON DELETE CASCADE,            -- NULL for follow notifs
     comment_id  UUID REFERENCES comments(id) ON DELETE CASCADE,         -- only for comment notifs
+    emoji       TEXT,                                                    -- only for reaction notifs
     is_read     BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -74,6 +75,7 @@ RETURNS TABLE (
     post_id UUID,
     post_image_url TEXT,
     comment_preview TEXT,
+    emoji TEXT,
     is_read BOOLEAN,
     created_at TIMESTAMPTZ
 ) AS $$
@@ -90,6 +92,7 @@ BEGIN
         n.post_id,
         p.image_url AS post_image_url,
         LEFT(c.content, 100) AS comment_preview,
+        n.emoji,
         n.is_read,
         n.created_at
     FROM notifications n
@@ -205,3 +208,36 @@ DROP TRIGGER IF EXISTS trg_notify_on_comment ON comments;
 CREATE TRIGGER trg_notify_on_comment
     AFTER INSERT ON comments
     FOR EACH ROW EXECUTE FUNCTION notify_on_comment();
+
+-- ── TRIGGER: Create notification on REACTION ─────────────────────────────
+
+CREATE OR REPLACE FUNCTION notify_on_reaction()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_post_owner UUID;
+BEGIN
+    SELECT user_id INTO v_post_owner FROM posts WHERE id = NEW.post_id;
+
+    -- Don't notify if reacting to own post (shouldn't happen, but safety)
+    IF v_post_owner IS NOT NULL AND v_post_owner != NEW.user_id THEN
+        INSERT INTO notifications (user_id, actor_id, type, post_id, emoji)
+        VALUES (v_post_owner, NEW.user_id, 'reaction', NEW.post_id, NEW.emoji)
+        ON CONFLICT (user_id, actor_id, type, post_id)
+            WHERE type = 'reaction'
+            DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now(), is_read = FALSE;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_notify_on_reaction ON reactions;
+CREATE TRIGGER trg_notify_on_reaction
+    AFTER INSERT OR UPDATE ON reactions
+    FOR EACH ROW EXECUTE FUNCTION notify_on_reaction();
+
+-- Prevent duplicate reaction notifications (one per actor per post)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unique_reaction
+    ON notifications (user_id, actor_id, type, post_id)
+    WHERE type = 'reaction';

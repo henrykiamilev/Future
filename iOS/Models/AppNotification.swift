@@ -9,6 +9,7 @@ struct AppNotification: Decodable, Identifiable, Sendable {
     let postId: UUID?
     let postImageUrl: String?
     let commentPreview: String?
+    let emoji: String?
     let isRead: Bool
     let createdAt: Date
 
@@ -16,6 +17,7 @@ struct AppNotification: Decodable, Identifiable, Sendable {
         case like
         case follow
         case comment
+        case reaction
     }
 
     var message: String {
@@ -29,6 +31,11 @@ struct AppNotification: Decodable, Identifiable, Sendable {
                 return "commented: \(preview)"
             }
             return "commented on your post"
+        case .reaction:
+            if let emoji {
+                return "reacted \(emoji) to your post"
+            }
+            return "reacted to your post"
         }
     }
 
@@ -37,6 +44,7 @@ struct AppNotification: Decodable, Identifiable, Sendable {
         case .like: return "heart.fill"
         case .follow: return "person.badge.plus"
         case .comment: return "bubble.right.fill"
+        case .reaction: return "face.smiling"
         }
     }
 }

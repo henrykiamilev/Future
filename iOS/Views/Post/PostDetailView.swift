@@ -4,9 +4,6 @@ struct PostDetailView: View {
 
     @StateObject var viewModel: PostDetailViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var showReportSheet = false
-    @State private var showReportConfirmation = false
-
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -29,32 +26,6 @@ struct PostDetailView: View {
         }
         .task {
             await viewModel.loadComments()
-        }
-        .confirmationDialog("Report Post", isPresented: $showReportSheet, titleVisibility: .visible) {
-            Button("Spam") {
-                Task { await viewModel.reportPost(reason: "spam") }
-                showReportConfirmation = true
-            }
-            Button("Harassment or Bullying") {
-                Task { await viewModel.reportPost(reason: "harassment") }
-                showReportConfirmation = true
-            }
-            Button("Inappropriate Content") {
-                Task { await viewModel.reportPost(reason: "inappropriate") }
-                showReportConfirmation = true
-            }
-            Button("Other") {
-                Task { await viewModel.reportPost(reason: "other") }
-                showReportConfirmation = true
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Why are you reporting this post?")
-        }
-        .alert("Report Submitted", isPresented: $showReportConfirmation) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Thanks for letting us know. We'll review this post.")
         }
     }
 
@@ -88,17 +59,6 @@ struct PostDetailView: View {
             }
 
             Spacer()
-
-            Button {
-                showReportSheet = true
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Theme.textTertiary)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, Theme.spacingM)
         .padding(.vertical, Theme.spacingM)

@@ -15,22 +15,32 @@ import SwiftUI
 //   │  │                                 │  │
 //   │  │                                 │  │
 //   │  │                                 │  │
-//   │  │                                 │  │
+//   │  │  ┌─────────────────────────┐    │  │
+//   │  │  │ 🔥 😮‍💨 😍 💯 🤯  │    │  │  ← emoji bar (long-press)
+//   │  │  └─────────────────────────┘    │  │
 //   │  └─────────────────────────────────┘  │
 //   │                                       │
-//   │  username                  React btn  │
+//   │  username                              │
 //   │                                       │
 //   └───────────────────────────────────────┘
 //
 // Tap → expands to full-screen (Instagram Reels style)
+// Double-tap → like (with heart animation + haptic)
+// Long-press → emoji reaction picker at bottom of image
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
 struct FeedPostCard: View {
 
     let post: FeedPost
-    let onReactTapped: () -> Void
+    let showReactionPicker: Bool
     let onTap: () -> Void
+    let onDoubleTap: () -> Void
+    let onLongPress: () -> Void
+    let onReaction: (String) -> Void
+
+    // MARK: - Double-tap heart animation
+    @State private var showHeart = false
 
     // MARK: - Layout
 
@@ -64,7 +74,7 @@ struct FeedPostCard: View {
     // MARK: - Image Card (tall rounded rectangle)
 
     private var imageCard: some View {
-        Button(action: onTap) {
+        ZStack(alignment: .bottom) {
             CachedImageView(
                 url: SupabaseConfig.storageURL(for: post.imageURL),
                 targetSize: CGSize(width: cardWidth * 2, height: imageHeight * 2)
@@ -79,11 +89,58 @@ struct FeedPostCard: View {
             .aspectRatio(contentMode: .fill)
             .frame(width: cardWidth, height: imageHeight)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .onTapGesture(count: 2) {
+                onDoubleTap()
+                triggerHeartAnimation()
+            }
+            .onTapGesture(count: 1) {
+                onTap()
+            }
+            .onLongPressGesture(minimumDuration: 0.4) {
+                onLongPress()
+            }
+
+            // Heart animation overlay
+            if showHeart {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 80, weight: .bold))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+                    .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+
+            // Emoji reaction bar — anchored at bottom of image
+            if showReactionPicker {
+                emojiBar
+                    .padding(.bottom, 16)
+                    .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+            }
         }
-        .buttonStyle(.plain)
     }
 
-    // MARK: - Info Row (username + react)
+    // MARK: - Emoji Reaction Bar
+
+    private var emojiBar: some View {
+        HStack(spacing: 18) {
+            ForEach(ReactionPicker.emojis, id: \.self) { emoji in
+                Button {
+                    onReaction(emoji)
+                } label: {
+                    Text(emoji)
+                        .font(.system(size: 28))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+    }
+
+    // MARK: - Info Row (username only)
 
     private var infoRow: some View {
         HStack(alignment: .center) {
@@ -93,22 +150,22 @@ struct FeedPostCard: View {
                 .lineLimit(1)
 
             Spacer()
-
-            Button(action: onReactTapped) {
-                Text("React")
-                    .font(.custom("OpenSauceSans-Medium", size: 13))
-                    .foregroundColor(FeedTokens.textPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(FeedTokens.border, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
         }
         .padding(.top, 10)
         .padding(.horizontal, 2)
+    }
+
+    // MARK: - Heart Animation
+
+    private func triggerHeartAnimation() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            showHeart = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                showHeart = false
+            }
+        }
     }
 
     // MARK: - Helpers

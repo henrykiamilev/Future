@@ -62,7 +62,7 @@ struct NotificationView: View {
                 .font(Theme.headlineFont)
                 .foregroundColor(Theme.textPrimary)
 
-            Text("When people like, comment, or follow you, it'll show up here.")
+            Text("When people like, react, comment, or follow you, it'll show up here.")
                 .font(Theme.bodyFont)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -124,7 +124,7 @@ struct NotificationRow: View {
 
             Spacer()
 
-            // Post thumbnail (for like/comment notifications)
+            // Trailing element: post thumbnail, emoji, or follow icon
             if let imageURL = notification.postImageUrl {
                 CachedImageView(
                     url: SupabaseConfig.storageURL(for: imageURL),
@@ -135,6 +135,10 @@ struct NotificationRow: View {
                 }
                 .frame(width: 44, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS))
+            } else if notification.type == .reaction, let emoji = notification.emoji {
+                Text(emoji)
+                    .font(.system(size: 24))
+                    .frame(width: 44, height: 44)
             } else {
                 // Follow icon for follow notifications
                 Image(systemName: notification.systemIcon)

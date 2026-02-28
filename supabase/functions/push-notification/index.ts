@@ -119,9 +119,10 @@ interface NotificationRecord {
   id: string;
   user_id: string;
   actor_id: string;
-  type: "like" | "follow" | "comment";
+  type: "like" | "follow" | "comment" | "reaction";
   post_id: string | null;
   comment_id: string | null;
+  emoji: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -219,6 +220,13 @@ serve(async (req: Request) => {
     // Don't send push for self-notifications (shouldn't happen, but safety check)
     if (record.user_id === record.actor_id) {
       return new Response(JSON.stringify({ skipped: "self-notification" }), {
+        status: 200,
+      });
+    }
+
+    // Reactions are in-app only — no push notification
+    if (record.type === "reaction") {
+      return new Response(JSON.stringify({ skipped: "reaction-in-app-only" }), {
         status: 200,
       });
     }

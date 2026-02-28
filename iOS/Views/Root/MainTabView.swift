@@ -13,13 +13,61 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            feedTab
-            searchTab
-            postTab
-            profileTab
+        ZStack(alignment: .bottom) {
+            // ── Tab content ──
+            Group {
+                switch selectedTab {
+                case .feed:
+                    feedTab
+                case .search:
+                    searchTab
+                case .post:
+                    postTab
+                case .profile:
+                    profileTab
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // ── Custom compact tab bar ──
+            customTabBar
         }
-        .tint(Theme.accent)
+    }
+
+    // MARK: - Custom Tab Bar
+
+    private var customTabBar: some View {
+        HStack(spacing: 0) {
+            tabIcon(tab: .feed, icon: "house", filledIcon: "house.fill")
+            tabIcon(tab: .search, icon: "magnifyingglass", filledIcon: "magnifyingglass")
+            tabIcon(tab: .post, icon: "plus.app", filledIcon: "plus.app.fill")
+            tabIcon(tab: .profile, icon: "person.circle", filledIcon: "person.circle.fill")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            Capsule()
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
+        )
+        .padding(.horizontal, 32)
+        .padding(.bottom, 4)
+    }
+
+    private func tabIcon(tab: Tab, icon: String, filledIcon: String) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedTab = tab
+            }
+        } label: {
+            Image(systemName: selectedTab == tab ? filledIcon : icon)
+                .font(.system(size: 22, weight: selectedTab == tab ? .medium : .light))
+                .foregroundColor(selectedTab == tab ? Theme.textPrimary : Theme.textTertiary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Tabs
@@ -27,11 +75,6 @@ struct MainTabView: View {
     private var feedTab: some View {
         NavigationStack {
             FeedView(viewModel: appState.makeFeedViewModel())
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NotificationBellButton(viewModel: appState.makeNotificationViewModel())
-                    }
-                }
                 .navigationDestination(for: FeedPost.self) { post in
                     PostDetailView(
                         viewModel: appState.makePostDetailViewModel(post: post, commentsEnabled: true)
@@ -41,10 +84,6 @@ struct MainTabView: View {
                     ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
                 }
         }
-        .tabItem {
-            Label("Feed", systemImage: "square.grid.2x2")
-        }
-        .tag(Tab.feed)
     }
 
     private var searchTab: some View {
@@ -64,20 +103,12 @@ struct MainTabView: View {
                 )
             }
         }
-        .tabItem {
-            Label("Search", systemImage: "magnifyingglass")
-        }
-        .tag(Tab.search)
     }
 
     private var postTab: some View {
         NavigationStack {
             PostCameraView(viewModel: appState.makePostViewModel())
         }
-        .tabItem {
-            Label("Post", systemImage: "camera")
-        }
-        .tag(Tab.post)
     }
 
     private var profileTab: some View {
@@ -90,10 +121,6 @@ struct MainTabView: View {
                     .foregroundColor(Theme.textSecondary)
             }
         }
-        .tabItem {
-            Label("Profile", systemImage: "person")
-        }
-        .tag(Tab.profile)
     }
 }
 
