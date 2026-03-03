@@ -7,6 +7,11 @@ struct CuratedApp: App {
     @StateObject private var appState = AppState()
     @State private var showSplash = true
     @State private var showOnboarding = false
+    @AppStorage("appAppearance") private var appearanceRaw: String = AppAppearance.light.rawValue
+
+    private var appearance: AppAppearance {
+        AppAppearance(rawValue: appearanceRaw) ?? .light
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -29,7 +34,7 @@ struct CuratedApp: App {
                     }
                 }
                 .environmentObject(appState)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(appearance.colorScheme)
 
                 if showSplash {
                     SplashScreenView {
@@ -39,7 +44,7 @@ struct CuratedApp: App {
                     .zIndex(1)
                 }
             }
-            .preferredColorScheme(.light)
+            .preferredColorScheme(appearance.colorScheme)
             .onChange(of: appState.isAuthenticated) { _, isAuth in
                 if isAuth {
                     // Request push notification permission on login
@@ -110,6 +115,7 @@ final class AppState: ObservableObject {
     let profileService: ProfileService
     let imageUploadService: ImageUploadService
     let searchService: SearchService
+    let shuffleService: ShuffleService
     let commentService: CommentService
     let notificationService: NotificationService
     let locationService: LocationService
@@ -154,6 +160,7 @@ final class AppState: ObservableObject {
             bucket: SupabaseConfig.storageBucket
         )
         self.searchService = SearchService(client: client)
+        self.shuffleService = ShuffleService(client: client)
         self.commentService = CommentService(client: client)
         self.notificationService = NotificationService(client: client)
         self.locationService = LocationService()
@@ -181,6 +188,7 @@ final class AppState: ObservableObject {
     private var cachedProfileVMs: [UUID: ProfileViewModel] = [:]
     private var cachedSettingsVM: SettingsViewModel?
     private var cachedSearchVM: SearchViewModel?
+    private var cachedShuffleVM: ShuffleViewModel?
     private var cachedNotificationVM: NotificationViewModel?
 
     func makeFeedViewModel() -> FeedViewModel {
@@ -232,6 +240,17 @@ final class AppState: ObservableObject {
         return vm
     }
 
+    func makeShuffleViewModel() -> ShuffleViewModel {
+        if let vm = cachedShuffleVM { return vm }
+        let vm = ShuffleViewModel(shuffleService: shuffleService)
+        cachedShuffleVM = vm
+        return vm
+    }
+
+    func makeSavedUsersViewModel() -> SavedUsersViewModel {
+        SavedUsersViewModel(shuffleService: shuffleService)
+    }
+
     func makePostDetailViewModel(post: FeedPost, commentsEnabled: Bool) -> PostDetailViewModel {
         PostDetailViewModel(
             post: post,
@@ -268,6 +287,7 @@ final class AppState: ObservableObject {
         cachedProfileVMs.removeAll()
         cachedSettingsVM = nil
         cachedSearchVM = nil
+        cachedShuffleVM = nil
         cachedNotificationVM = nil
         urlSession.configuration.urlCache?.removeAllCachedResponses()
         ImageCache.shared.clearDiskCache()

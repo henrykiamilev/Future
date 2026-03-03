@@ -62,13 +62,20 @@ final class FeedViewModel: ObservableObject {
     // MARK: - Session Timer (Anti-Doomscroll)
 
     func startSessionTracking() {
+        let durationRaw = UserDefaults.standard.string(forKey: "sessionReminderDuration") ?? SessionDuration.ten.rawValue
+        guard let duration = SessionDuration(rawValue: durationRaw),
+              let threshold = duration.seconds else {
+            // "Off" — don't start timer
+            return
+        }
+
         sessionStartTime = Date()
         sessionTimerCancellable = Timer.publish(every: 60, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 guard let self, let start = self.sessionStartTime else { return }
                 let elapsed = Date().timeIntervalSince(start)
-                if elapsed >= 600 && !self.showSessionReminder {
+                if elapsed >= threshold && !self.showSessionReminder {
                     self.showSessionReminder = true
                 }
             }
@@ -76,7 +83,7 @@ final class FeedViewModel: ObservableObject {
 
     func dismissSessionReminder() {
         showSessionReminder = false
-        sessionStartTime = Date()  // Reset — next reminder in 10 min
+        sessionStartTime = Date()  // Reset timer
     }
 
     func stopSessionTracking() {

@@ -264,6 +264,42 @@ extension APIEndpoint {
     }
 }
 
+// MARK: - Shuffle Endpoints
+
+extension APIEndpoint {
+    static func shuffleDeck(limit: Int = 20) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_shuffle_deck",
+            method: .POST,
+            body: RPCLimit(p_limit: limit)
+        )
+    }
+
+    static func recordShuffleAction(targetUserID: UUID, action: String) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/record_shuffle_action",
+            method: .POST,
+            body: RPCShuffleAction(p_target_user_id: targetUserID.uuidString, p_action: action)
+        )
+    }
+
+    static func savedUsers(limit: Int = 50) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_saved_users",
+            method: .POST,
+            body: RPCLimit(p_limit: limit)
+        )
+    }
+
+    static func unsaveUser(userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/unsave_user",
+            method: .POST,
+            body: RPCTargetUser(p_target_user_id: userID.uuidString)
+        )
+    }
+}
+
 // MARK: - Consumption Tracking Endpoints
 
 extension APIEndpoint {
@@ -370,6 +406,38 @@ extension APIEndpoint {
         )
     }
 
+    static func updateNotificationPreferences(_ prefs: NotificationPreferencesUpdate, userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
+            body: prefs
+        )
+    }
+
+    static func updateProfileTheme(_ theme: String, userID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/users",
+            method: .PATCH,
+            queryItems: [.init(name: "id", value: "eq.\(userID.uuidString)")],
+            body: ProfileThemeUpdate(profile_theme: theme)
+        )
+    }
+
+    static var blockedUsers: APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/get_blocked_users",
+            method: .POST
+        )
+    }
+
+    static func unblockUser(targetUserID: UUID) -> APIEndpoint {
+        APIEndpoint(
+            path: "/rest/v1/rpc/unblock_user",
+            method: .POST,
+            body: RPCTargetUser(p_target_user_id: targetUserID.uuidString)
+        )
+    }
 }
 
 // MARK: - Push Notification Endpoints
@@ -554,12 +622,18 @@ struct ProfileUpdate: Encodable, Sendable {
     var bio: String
     var instagramHandle: String
     var snapchatHandle: String
+    var tiktokHandle: String
+    var xHandle: String
+    var websiteURL: String
 
     enum CodingKeys: String, CodingKey {
         case displayName = "display_name"
         case bio
         case instagramHandle = "instagram_handle"
         case snapchatHandle = "snapchat_handle"
+        case tiktokHandle = "tiktok_handle"
+        case xHandle = "x_handle"
+        case websiteURL = "website_url"
     }
 }
 
@@ -635,6 +709,26 @@ private struct RPCOtherUser: Encodable, Sendable {
 
 private struct RPCMinStreak: Encodable, Sendable {
     let p_min_streak: Int
+}
+
+private struct RPCShuffleAction: Encodable, Sendable {
+    let p_target_user_id: String
+    let p_action: String
+}
+
+private struct RPCTargetUser: Encodable, Sendable {
+    let p_target_user_id: String
+}
+
+struct NotificationPreferencesUpdate: Encodable, Sendable {
+    let notify_likes: Bool
+    let notify_comments: Bool
+    let notify_follows: Bool
+    let notify_reactions: Bool
+}
+
+private struct ProfileThemeUpdate: Encodable, Sendable {
+    let profile_theme: String
 }
 
 struct CuratedPageUpdate: Encodable, Sendable {

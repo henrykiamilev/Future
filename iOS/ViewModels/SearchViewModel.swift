@@ -1,6 +1,11 @@
 import Foundation
 import Combine
 
+enum SearchMode: String, CaseIterable, Sendable {
+    case shuffle = "Shuffle"
+    case browse = "Browse"
+}
+
 @MainActor
 final class SearchViewModel: ObservableObject {
 
@@ -9,6 +14,9 @@ final class SearchViewModel: ObservableObject {
     @Published private(set) var isSearching = false
     @Published private(set) var hasSearched = false
     @Published private(set) var error: String?
+
+    // Mode toggle
+    @Published var mode: SearchMode = .shuffle
 
     // Discover state
     @Published private(set) var suggestedUsers: [SuggestedUser] = []

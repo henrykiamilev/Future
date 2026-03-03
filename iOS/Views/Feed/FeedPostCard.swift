@@ -193,27 +193,42 @@ struct FeedFullScreenView: View {
 
     var body: some View {
         ZStack {
-            // Black background
-            Color.black.ignoresSafeArea()
-
-            // Full-screen image — tap to go to profile
-            CachedImageView(
-                url: SupabaseConfig.storageURL(for: post.imageURL),
-                targetSize: CGSize(width: screenWidth * 2, height: screenHeight * 2)
-            ) {
-                Rectangle()
-                    .fill(Color(white: 0.08))
-                    .overlay {
-                        ProgressView().tint(.white.opacity(0.3))
-                    }
+            // Full-screen image — edge to edge, fills entire screen
+            GeometryReader { geo in
+                CachedImageView(
+                    url: SupabaseConfig.storageURL(for: post.imageURL),
+                    targetSize: CGSize(width: geo.size.width * 2, height: geo.size.height * 2)
+                ) {
+                    Rectangle()
+                        .fill(Color(white: 0.08))
+                        .overlay {
+                            ProgressView().tint(.white.opacity(0.3))
+                        }
+                }
+                .aspectRatio(contentMode: .fill)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
             }
-            .aspectRatio(contentMode: .fill)
-            .frame(width: screenWidth, height: screenHeight)
-            .clipped()
             .ignoresSafeArea()
             .onTapGesture {
                 onProfileTapped()
             }
+
+            // Top gradient for readability
+            VStack {
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.4), location: 0),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 160)
+                Spacer()
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
 
             // Bottom gradient for readability
             VStack {
@@ -221,55 +236,67 @@ struct FeedFullScreenView: View {
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0),
-                        .init(color: .black.opacity(0.6), location: 1)
+                        .init(color: .black.opacity(0.5), location: 1)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .frame(height: 200)
+                .frame(height: 140)
             }
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
-            // Overlay content — bottom info only
+            // Overlay content
             VStack {
-                Spacer()
+                // Top row: Logo (left) + Name/Caption (right)
+                HStack(alignment: .top) {
+                    // App logo
+                    Image("AppIcon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
 
-                // Bottom info
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // Username
+                    Spacer()
+
+                    // Username + caption
+                    VStack(alignment: .trailing, spacing: 4) {
                         Text(displayName)
                             .font(.custom("OpenSauceSans-SemiBold", size: 16))
                             .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
 
-                        // Caption
                         if let caption = post.caption, !caption.isEmpty {
                             Text(caption)
-                                .font(.custom("OpenSauceSans-Regular", size: 14))
-                                .foregroundColor(.white.opacity(0.85))
+                                .font(.custom("OpenSauceSans-Regular", size: 15))
+                                .foregroundColor(.white.opacity(0.9))
+                                .multilineTextAlignment(.trailing)
                                 .lineLimit(3)
-                        }
-
-                        // Location
-                        if let location = post.location, !location.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: 10))
-                                Text(location)
-                                    .font(.custom("OpenSauceSans-Regular", size: 12))
-                            }
-                            .foregroundColor(.white.opacity(0.7))
+                                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         }
                     }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
 
+                Spacer()
+
+                // Bottom: Location (left)
+                HStack {
+                    if let location = post.location, !location.isEmpty {
+                        Text(location)
+                            .font(.custom("OpenSauceSans-Medium", size: 16))
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 40)
-                .onTapGesture {
-                    onProfileTapped()
-                }
+                .padding(.bottom, 16)
+            }
+            .onTapGesture {
+                onProfileTapped()
             }
         }
         .offset(y: dragOffset)

@@ -17,6 +17,10 @@ protocol ProfileServiceProtocol: Sendable {
     func getMyStreaks() async throws -> [StreakPartner]
     func getCuratedPage(userID: UUID) async throws -> CuratedPage?
     func upsertCuratedPage(_ update: CuratedPageUpdate) async throws
+    func updateNotificationPreferences(_ prefs: NotificationPreferencesUpdate, userID: UUID) async throws
+    func updateProfileTheme(_ theme: String, userID: UUID) async throws
+    func getBlockedUsers() async throws -> [BlockedUser]
+    func unblockUser(targetUserID: UUID) async throws
 }
 
 struct StreakInfo: Decodable, Sendable {
@@ -175,5 +179,21 @@ final class ProfileService: ProfileServiceProtocol, Sendable {
 
     func upsertCuratedPage(_ update: CuratedPageUpdate) async throws {
         try await client.requestVoid(.upsertCuratedPage(update))
+    }
+
+    func updateNotificationPreferences(_ prefs: NotificationPreferencesUpdate, userID: UUID) async throws {
+        try await client.requestVoid(.updateNotificationPreferences(prefs, userID: userID))
+    }
+
+    func updateProfileTheme(_ theme: String, userID: UUID) async throws {
+        try await client.requestVoid(.updateProfileTheme(theme, userID: userID))
+    }
+
+    func getBlockedUsers() async throws -> [BlockedUser] {
+        try await client.request(.blockedUsers)
+    }
+
+    func unblockUser(targetUserID: UUID) async throws {
+        try await client.requestVoid(.unblockUser(targetUserID: targetUserID))
     }
 }

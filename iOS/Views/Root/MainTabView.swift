@@ -88,9 +88,10 @@ struct MainTabView: View {
 
     private var searchTab: some View {
         NavigationStack {
-            SearchView(viewModel: appState.makeSearchViewModel()) { userID in
-                // Navigation handled via navigationDestination
-            }
+            SearchView(
+                viewModel: appState.makeSearchViewModel(),
+                shuffleViewModel: appState.makeShuffleViewModel()
+            )
             .navigationDestination(for: UUID.self) { userID in
                 ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
             }
@@ -101,6 +102,16 @@ struct MainTabView: View {
                         commentsEnabled: true
                     )
                 )
+            }
+            .navigationDestination(for: String.self) { value in
+                if value == "saved_users" {
+                    SavedUsersView(viewModel: appState.makeSavedUsersViewModel()) { userID in
+                        // Navigation handled via navigationDestination
+                    }
+                    .navigationDestination(for: UUID.self) { userID in
+                        ProfileView(viewModel: appState.makeProfileViewModel(userID: userID))
+                    }
+                }
             }
         }
     }

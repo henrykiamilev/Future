@@ -3,7 +3,7 @@ import SwiftUI
 struct SearchView: View {
 
     @StateObject var viewModel: SearchViewModel
-    let onUserTapped: (UUID) -> Void
+    @StateObject var shuffleViewModel: ShuffleViewModel
 
     private let exploreColumns = [
         GridItem(.flexible(), spacing: 3),
@@ -12,24 +12,67 @@ struct SearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Greeting + search bar
-            VStack(spacing: 6) {
-                Text("Discover your community")
-                    .font(.custom("OpenSauceSans-Regular", size: 13))
-                    .foregroundColor(Theme.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 22)
-                    .padding(.top, 10)
+            // Mode toggle (centered) + bookmark overlay
+            modeToggle
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .trailing) {
+                    NavigationLink(value: "saved_users") {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Theme.textPrimary)
+                    }
+                    .padding(.trailing, 20)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 6)
 
+            // Search bar (only in browse mode or when searching)
+            if viewModel.mode == .browse || !viewModel.query.isEmpty {
                 searchBar
+                    .padding(.top, 4)
             }
 
-            resultsList
+            if !viewModel.query.isEmpty || viewModel.hasSearched {
+                // Search results take over regardless of mode
+                resultsList
+            } else {
+                // Mode-dependent content
+                switch viewModel.mode {
+                case .shuffle:
+                    ShuffleView(viewModel: shuffleViewModel)
+                case .browse:
+                    discoverSection
+                }
+            }
         }
         .background(Theme.background)
         .navigationBarHidden(true)
         .task {
-            await viewModel.loadDiscover()
+            if viewModel.mode == .browse {
+                await viewModel.loadDiscover()
+            }
+        }
+    }
+
+    // MARK: - Mode Toggle
+
+    private var modeToggle: some View {
+        HStack(spacing: 0) {
+            ForEach(SearchMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.mode = mode
+                    }
+                } label: {
+                    Text(mode.rawValue.uppercased())
+                        .font(.custom("OpenSauceSans-SemiBold", size: 12))
+                        .tracking(1.5)
+                        .foregroundColor(viewModel.mode == mode ? Theme.textPrimary : Theme.textTertiary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -139,11 +182,6 @@ struct SearchView: View {
                         newToCuratedSection
                     }
 
-                    // People you might like — rich horizontal cards
-                    if !viewModel.suggestedUsers.isEmpty {
-                        suggestedUsersSection
-                    }
-
                     // Trending posts grid
                     if !viewModel.explorePosts.isEmpty {
                         trendingPostsSection
@@ -171,6 +209,9 @@ struct SearchView: View {
 
                 Spacer().frame(height: 80)
             }
+        }
+        .task {
+            await viewModel.loadDiscover()
         }
     }
 
@@ -239,84 +280,6 @@ struct SearchView: View {
             .padding(.top, 12)
         }
         .frame(width: 140)
-    }
-
-    // MARK: - People You Might Like (Rich horizontal cards)
-
-    private var suggestedUsersSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("People you might like")
-                .font(.custom("OpenSauceSans-SemiBold", size: 16))
-                .foregroundColor(Theme.textPrimary)
-                .padding(.horizontal, 20)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(viewModel.suggestedUsers) { user in
-                        NavigationLink(value: user.id) {
-                            suggestedRichCard(user)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-        .padding(.bottom, 28)
-    }
-
-    private func suggestedRichCard(_ user: SuggestedUser) -> some View {
-        VStack(spacing: 0) {
-            // Top: profile photo + info
-            HStack(spacing: 12) {
-                CachedImageView(
-                    url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
-                    targetSize: CGSize(width: 96, height: 96)
-                ) {
-                    Circle()
-                        .fill(Theme.separator)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(Theme.textTertiary)
-                        }
-                }
-                .frame(width: 44, height: 44)
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(user.username)
-                        .font(.custom("OpenSauceSans-SemiBold", size: 14))
-                        .foregroundColor(Theme.textPrimary)
-                        .lineLimit(1)
-
-                    Text(formatFollowers(user.followerCount))
-                        .font(.custom("OpenSauceSans-Regular", size: 11))
-                        .foregroundColor(Theme.textTertiary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-
-            // Bottom: preview of their latest post (use their profile photo as stand-in)
-            CachedImageView(
-                url: SupabaseConfig.storageURL(for: user.profilePhotoURL ?? ""),
-                targetSize: CGSize(width: 320, height: 200)
-            ) {
-                Rectangle()
-                    .fill(Theme.separator)
-            }
-            .frame(height: 120)
-            .clipped()
-        }
-        .frame(width: 220)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
     }
 
     // MARK: - Trending Posts
